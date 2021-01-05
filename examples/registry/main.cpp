@@ -1,3 +1,4 @@
+#include <set>
 #include <conio.h>
 #include "entt/entt.hpp"
 #include "sol/sol.hpp"
@@ -7,9 +8,11 @@
 entt::registry gRegistry{};
 
 template <typename Component>
-void set_component(entt::registry &registry, entt::entity entity,
-                   const sol::object &component) {
-  registry.emplace_or_replace<Component>(entity, component.as<Component>());
+void emplace_component(entt::registry &registry, entt::entity entity,
+                       const sol::object &component) {
+  const auto comp =
+    component.valid() ? component.as<Component>() : Component{};
+  registry.emplace_or_replace<Component>(entity, comp);
 }
 template <typename Component>
 sol::object get_component(entt::registry &registry, entt::entity entity,
@@ -21,13 +24,18 @@ template <typename Component>
 bool has_component(entt::registry &registry, entt::entity entity) {
   return registry.has<Component>(entity);
 }
+template <typename Component>
+void remove_component(entt::registry &registry, entt::entity entity) {
+  registry.remove_if_exists<Component>(entity);
+}
 
 template <typename Component> void register_meta_component() {
   entt::meta<Component>().type();
   entt::meta<Component>()
-    .template func<&set_component<Component>>("set"_hs)
+    .template func<&emplace_component<Component>>("emplace"_hs)
     .template func<&get_component<Component>>("get"_hs)
-    .template func<&has_component<Component>>("has"_hs);
+    .template func<&has_component<Component>>("has"_hs)
+    .template func<&remove_component<Component>>("remove"_hs);
 }
 
 sol::table open_registry(const sol::this_state &s) {
@@ -37,22 +45,23 @@ sol::table open_registry(const sol::this_state &s) {
   registry_module.set_function("create", [&] { return gRegistry.create(); });
   registry_module.set_function(
     "destroy", [&](entt::entity entity) { return gRegistry.destroy(entity); });
-  registry_module.set_function(
-    "set", [&](entt::entity entity, entt::id_type id, const sol::object &component) {
+
+  registry_module.set_function("emplace", [&](entt::entity entity, entt::id_type id,
+                                          const sol::object &component) {
     if (auto component_type = entt::resolve_type(id); component_type) {
-      component_type.func("set"_hs).invoke({}, std::ref(gRegistry), entity,
+      component_type.func("emplace"_hs).invoke({}, std::ref(gRegistry), entity,
                                            component);
     }
-    });
-  registry_module.set_function(
-    "get", [&](entt::entity entity, entt::id_type id, const sol::this_state &s) {
-      if (auto component_type = entt::resolve_type(id); component_type) {
+  });
+  registry_module.set_function("get", [&](entt::entity entity, entt::id_type id,
+                                          const sol::this_state &s) {
+    if (auto component_type = entt::resolve_type(id); component_type) {
       auto any = component_type.func("get"_hs).invoke({}, std::ref(gRegistry),
                                                       entity, s);
-        return any.cast<sol::object>();
-      }
-      return sol::make_object(s, sol::lua_nil);
-    });
+      return any.cast<sol::object>();
+    }
+    return sol::make_object(s, sol::lua_nil);
+  });
   registry_module.set_function(
     "has", [](entt::entity entity, entt::id_type id) {
       if (auto component_type = entt::resolve_type(id); component_type) {
@@ -62,8 +71,36 @@ sol::table open_registry(const sol::this_state &s) {
       }
       return false;
     });
+  registry_module.set_function("remove", [&](entt::entity entity,
+                                             entt::id_type id) {
+    if (auto component_type = entt::resolve_type(id); component_type)
+      component_type.func("remove"_hs).invoke({}, std::ref(gRegistry), entity);
+  });
+
   registry_module.set_function("size", [&] { return gRegistry.size(); });
   registry_module.set_function("empty", [&] { return gRegistry.empty(); });
+
+  // clang-format off
+  registry_module.new_usertype<entt::runtime_view>("runtime_view",
+    sol::no_constructor,
+    "size", &entt::runtime_view::size,
+    "empty", &entt::runtime_view::empty,
+    "contains", &entt::runtime_view::contains,
+    "each", [&](const sol::object &self, const sol::function &callback) {
+      for (auto entity : self.as<entt::runtime_view>())
+        callback(entity);
+    }
+  );
+  // clang-format on
+
+  registry_module.set_function("view", [&](entt::id_type type,
+                                           const sol::variadic_args &va,
+                                           const sol::this_state &s) {
+    std::set<entt::id_type> types{ type };
+    std::transform(va.begin(), va.end(), std::inserter(types, types.begin()),
+                   [](const auto &p) { return p.as<entt::id_type>(); });
+    return gRegistry.runtime_view(std::cbegin(types), std::cend(types));
+  });
 
   return registry_module;
 }
@@ -103,21 +140,40 @@ int main(int argc, char *argv[]) {
     // clang-format on
 
     lua.script(R"(
-      local registry = require('registry')
+      registry = require('registry')
 
-      entity = registry.create()
-      assert(entity == 0 and registry.size() == 1)
-      registry.set(entity, Transform.type_id(), Transform(6, 12))
-      assert(registry.has(entity, Transform.type_id()))
+      bowser = registry.create()
+      assert(bowser == 0 and registry.size() == 1)
+      registry.emplace(bowser, Transform.type_id(), Transform(5, 6))
+      assert(registry.has(bowser, Transform.type_id()))
 
-      transform = registry.get(entity, Transform.type_id())
+      transform = registry.get(bowser, Transform.type_id())
+      print('Bowser position = ' .. transform.x .. ', ' .. transform.y)
     )");
 
-    entt::entity entity{ lua["entity"] };
-    auto t = gRegistry.try_get<Transform>(entity);
+    entt::entity bowser{ lua["bowser"] };
+    auto t = gRegistry.try_get<Transform>(bowser);
     assert(t);
     Transform transform = lua["transform"];
     assert(t->x == transform.x && t->y == transform.y);
+
+    lua.script(R"(
+      view = registry.view(Transform.type_id())
+      assert(not view:empty())
+
+      local koopa = registry.create()
+      registry.emplace(koopa, Transform.type_id()) -- default constructor (0, 0)
+      transform = registry.get(koopa, Transform.type_id())
+      print('Koopa position = ' .. transform.x .. ', ' .. transform.y)
+      
+      assert(view:size() == 2)
+
+      view:each(function(entity)
+        registry.remove(entity, Transform.type_id())
+      end)
+
+      assert(view:size() == 0)
+    )");
   } catch (const std::exception &e) {
     std::cout << "exception: " << e.what();
     return -1;

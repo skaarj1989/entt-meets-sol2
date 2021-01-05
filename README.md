@@ -10,10 +10,11 @@ cmake ..
 [entt/wiki/registry](https://github.com/skypjack/entt/wiki/Crash-Course:-entity-component-system#the-registry-the-entity-and-the-component)
 
 ## Goal
-- Expose `registry` to Lua scripts
-- Manage entity lifetime
-- Set components
-- Get component by value or reference
+- Expose `registry` to Lua scripts:
+    * Manage entity lifetime
+    * Set components
+    * Get component by value or reference
+    * `runtime_view`
 
 ### c++
 ```cpp
@@ -38,13 +39,23 @@ lua.new_usertype<Transform>("Transform",
 ```lua
 local registry = require('registry')
 
-entity = registry.create()
-registry.set(entity, Transform.type_id(), Transform(1, 2))
-material = registry.get(entity, Material.type_id())
+mario = registry.create()
+registry.emplace(mario, Transform.type_id(), Transform(1, 2))
+material = registry.get(mario, Material.type_id())
 
-if (registry.has(entity, DeletionFlag.type_id())) then
-    registry.destroy(entity)
+if (registry.has(mario, Transform.type_id())) then
+    registry.emplace(mario, DeletionFlag.type_id())
 end
+```
+
+```lua
+-- runtime_view:
+-- Utilizes variadic args - pass as many types as you want
+registry.view(Transform.type_id(), DeletionFlag.type_id()):each(
+    function(entity)
+        registry.remove(entity, DeletionFlag.type_id())
+    end
+)
 ```
 
 # Cooperative scheduler
@@ -64,7 +75,7 @@ lua.require('scheduler', ...);
 scheduler.update(dt); // inside loop
 ```
 
-## lua script
+### lua script
 ```lua
 local scheduler = require('scheduler')
 
