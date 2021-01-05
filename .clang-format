@@ -1,0 +1,9 @@
+﻿---
+BasedOnStyle: LLVM
+AllowShortIfStatementsOnASingleLine: WithoutElse
+IndentPPDirectives: AfterHash
+IndentWidth: '2'
+Cpp11BracedListStyle: false
+ContinuationIndentWidth: 2
+
+...
