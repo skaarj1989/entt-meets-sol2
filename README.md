@@ -2,7 +2,7 @@
 
 ## Build examples
 ```bash
-mkdir build && cdbuild
+mkdir build && cd build
 cmake ..
 ```
 
@@ -24,6 +24,9 @@ struct Transform { int x, y; };
 
 register_meta_component<Transform>();
 
+sol::state lua{};
+lua.require("dispatcher" ...);
+
 lua.new_usertype<Transform>("Transform",
     "type_id", &entt::type_info<Transform>::id,
     sol::call_constructor,
@@ -33,27 +36,30 @@ lua.new_usertype<Transform>("Transform",
     "x", &Transform::x,
     "y", &Transform::y
 );
-```
 
+lua["registry"] = std::ref(registry);
+```
 ### lua
 ```lua
-local registry = require('registry')
+registry = entt.registry.new()
+```
 
-mario = registry.create()
-registry.emplace(mario, Transform.type_id(), Transform(1, 2))
-material = registry.get(mario, Material.type_id())
+```lua
+mario = registry:create()
+registry:emplace(mario, Transform.type_id(), Transform(1, 2))
+material = registry:get(mario, Material.type_id())
 
-if (registry.has(mario, Transform.type_id())) then
-    registry.emplace(mario, DeletionFlag.type_id())
+if (registry:has(mario, Transform.type_id())) then
+    registry:emplace(mario, DeletionFlag.type_id())
 end
 ```
 
 ```lua
 -- runtime_view:
 -- Utilizes variadic args - pass as many types as you want
-registry.view(Transform.type_id(), DeletionFlag.type_id()):each(
+registry:runtime_view(Transform.type_id(), DeletionFlag.type_id()):each(
     function(entity)
-        registry.remove(entity, DeletionFlag.type_id())
+        registry:remove(entity, DeletionFlag.type_id())
     end
 )
 ```
@@ -63,22 +69,26 @@ registry.view(Transform.type_id(), DeletionFlag.type_id()):each(
 [entt/wiki/cooperative-scheduler](https://github.com/skypjack/entt/wiki/Crash-Course:-cooperative-scheduler)
 
 ## Goal
-- Define process class in Lua and attach it to `scheduler`
+- Define process class in Lua and attach it to `scheduler` either native c++ or dedicated to script
 - Allow process chaining
 ### c++ setup
 
 ```cpp
 entt::scheduler scheduler{};
 
-lua.require('scheduler', ...);
+sol::state lua{};
+lua.require("scheduler", ...);
+lua["scheduler"] = std::ref(scheduler);
 
 scheduler.update(dt); // inside loop
 ```
 
 ### lua script
 ```lua
-local scheduler = require('scheduler')
+scheduler = entt.scheduler.new()
+```
 
+```lua
 local process_a = {}
 function process:update(dt)
     -- ...
@@ -86,7 +96,7 @@ end
 -- define init, succeeded and other methods ...
 
 -- This one differs from entt attach().then().then ... but works the same
-scheduler.attach(
+scheduler:attach(
     process_a,
     process_b,
     process_n
@@ -107,11 +117,12 @@ scheduler.attach(
 ```cpp
 entt::dispatcher dispatcher{};
 
-lua.require("dispatcher", ...);
-
 struct an_event { int value; };
 
 register_meta_event<an_event>();
+
+sol::state lua{}
+lua.require("dispatcher", ...)
 
 lua.new_usertype<an_event>("an_event",
     "type_id", &entt::type_info<an_event>::id,
@@ -127,8 +138,10 @@ dispatcher.update(); // inside loop
 
 ### lua script
 ```lua
-local dispatcher = require('dispatcher')
+dispatcher = entt.dispatcher.new()
+```
 
+```lua
 listener = {}
 function listener.receive(evt)
     -- ...
@@ -137,15 +150,16 @@ function listener.method(evt)
     -- ...
 end
 
--- You have to store result of `connect()`, otherwise listener will be
+-- You have to store result of 'connect()', otherwise listener will be
 -- disconnected in lua garbage collection step.
-conn = dispatcher.connect(an_event.type_id(), listener.receive)
-dispatcher.connect(another_event.type_id(), listener.method)
+conn = dispatcher:connect(an_event.type_id(), listener.receive)
+dispatcher:connect(another_event.type_id(), listener.method)
 
-dispatcher.trigger(an_event.type_id(), an_event(42))
-dispatcher.enqueue(another_event.type_id(), another_event())
+-- Event type is deduced from bound 'type_id()' method
+dispatcher:trigger(an_event(42))
+dispatcher:enqueue(another_event())
 
-conn = nil -- to diconnect listener
+conn = nil -- to disconnect listener
 ```
 
 # License

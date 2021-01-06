@@ -8,12 +8,10 @@
 
 using namespace std::chrono_literals;
 
-using fsec = std::chrono::duration<float>;
-entt::scheduler<fsec> gScheduler{};
-
-class ScriptProcess : public entt::process<ScriptProcess, fsec> {
+template <typename Delta>
+class ScriptProcess : public entt::process<ScriptProcess<Delta>, Delta> {
 public:
-  ScriptProcess(sol::table &&t, const fsec &frequency = 250ms)
+  ScriptProcess(sol::table &&t, const Delta &frequency = 250ms)
       : m_self{ t }, m_update{ m_self["update"] }, m_frequency{ frequency } {
     m_self["succeed"] = [&] { succeed(); };
     m_self["abort"] = [&] { abort(); };
@@ -39,7 +37,7 @@ public:
     _call("init");
   }
 
-  void update(const fsec &dt, void *) {
+  void update(const Delta &dt, void *) {
     if (!m_update.valid()) return fail();
 
     m_time += dt;
@@ -60,23 +58,38 @@ private:
 private:
   sol::table m_self;
   sol::function m_update;
-  fsec m_frequency, m_time{ 0 };
+  Delta m_frequency, m_time{ 0 };
 };
 
+template <typename Delta>
 sol::table open_scheduler(const sol::this_state &s) {
   sol::state_view lua{ s };
-  auto scheduler_module = lua.create_table();
+  auto entt_module = lua["entt"].get_or_create<sol::table>();
 
-  scheduler_module.set_function(
-    "attach", [&](sol::table &&process, const sol::variadic_args &va) {
-      auto continuator = gScheduler.attach<ScriptProcess>(std::move(process));
-      for (sol::table &&child_process : va)
-        continuator = continuator.then<ScriptProcess>(std::move(child_process));
-    });
-  scheduler_module.set_function("size", [&]() { return gScheduler.size(); });
-  scheduler_module.set_function("empty", [&]() { return gScheduler.empty(); });
+  // clang-format off
+  entt_module.new_usertype<entt::scheduler<Delta>>("scheduler",
+    sol::meta_function::construct,
+    sol::factories([]{ return entt::scheduler<Delta>{}; }),
 
-  return scheduler_module;
+    "size", &entt::scheduler<Delta>::size,
+    "empty", &entt::scheduler<Delta>::empty,
+    "clear", &entt::scheduler<Delta>::clear,
+    "attach", [](const sol::object &self, sol::table &&process,
+                 const sol::variadic_args &va, const sol::this_state &) {
+      auto &scheduler = self.as<entt::scheduler<Delta>>();
+      auto continuator =
+        scheduler.attach<ScriptProcess<Delta>>(std::move(process));
+      for (sol::table &&child_process : va) {
+        continuator =
+          continuator.then<ScriptProcess<Delta>>(std::move(child_process));
+      }
+    },
+    "update", &entt::scheduler<Delta>::update,
+    "abort", &entt::scheduler<Delta>::abort
+  );
+  // clang-format on
+
+  return entt_module;
 }
 
 int lua_custom_require(lua_State *L) {
@@ -140,39 +153,46 @@ int main(int argc, char *argv[]) {
 #endif
 
   try {
+    using fsec = std::chrono::duration<float>;
+    entt::scheduler<fsec> scheduler{};
+
     sol::state lua{};
     lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
-    lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler)>, false);
+    lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler<fsec>)>, false);
 
     lua.clear_package_loaders();
     lua.add_package_loader(lua_custom_require);
 
+    lua["scheduler"] = std::ref(scheduler);
+
     lua.script(R"(
-      local scheduler = require('scheduler')
+      --local scheduler = entt.scheduler()
 
       local test_process = require('test_process')
-      my_proc = test_process.new('bar')
+      my_proc = test_process.new('deploy_missile')
       my_proc.update = function(self, dt)
-        print(self.name .. ' overriden update')
         self.fail()
       end
 
-      scheduler.attach(
-        test_process.new('foo'),
+      scheduler:attach(
+        test_process.new('open_silo'),
         my_proc,
-        test_process.new('rejected')
+        test_process.new('') -- is rejected because 'my_proc' fails
       )
+
+      assert(not scheduler:empty())
+      assert(scheduler:size() == 1)
     )");
 
     using clock = std::chrono::high_resolution_clock;
     constexpr auto target_frame_time = 16ms;
     fsec delta_time{ target_frame_time };
 
-    while (!gScheduler.empty()) {
+    while (!scheduler.empty()) {
       auto beginTicks = clock::now();
       lua.step_gc(4);
 
-      gScheduler.update(delta_time);
+      scheduler.update(delta_time);
       std::this_thread::sleep_for(target_frame_time);
 
       delta_time = std::chrono::duration_cast<fsec>(clock::now() - beginTicks);

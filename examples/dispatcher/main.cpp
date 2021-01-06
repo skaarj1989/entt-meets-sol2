@@ -1,14 +1,14 @@
 #include <iostream>
 #include <conio.h>
 #include "entt/entt.hpp"
+#include "../meta_helper.hpp"
 #include "sol/sol.hpp"
 
 #define AUTO_ARG(x) decltype(x), x
 
-entt::dispatcher gDispatcher{};
-
 template <typename Event>
 auto register_listener(entt::dispatcher &dispatcher, const sol::function &f) {
+  assert(f.valid());
   std::cout << "Registered lua listener: " << f.pointer() << std::endl;
 
   class ScriptListener {
@@ -34,12 +34,22 @@ auto register_listener(entt::dispatcher &dispatcher, const sol::function &f) {
   return listener;
 }
 template <typename Event>
-void trigger_event(entt::dispatcher &dispatcher, const sol::object &evt) {
-  dispatcher.trigger<Event>(evt.as<Event>());
+void trigger_event(entt::dispatcher &dispatcher, const sol::table &evt) {
+  assert(evt.valid());
+  dispatcher.trigger(evt.as<Event>());
 }
 template <typename Event>
-void enqueue_event(entt::dispatcher &dispatcher, const sol::object &evt) {
-  dispatcher.enqueue<Event>(evt.as<Event>());
+void enqueue_event(entt::dispatcher &dispatcher, const sol::table &evt) {
+  assert(evt.valid());
+  dispatcher.enqueue(evt.as<Event>());
+}
+template <typename Event>
+void clear_event(entt::dispatcher &dispatcher) {
+  dispatcher.clear<Event>();
+}
+template <typename Event>
+void update_event(entt::dispatcher &dispatcher) {
+  dispatcher.update<Event>();
 }
 
 template <typename Event> void register_meta_event() {
@@ -47,40 +57,56 @@ template <typename Event> void register_meta_event() {
   entt::meta<Event>()
     .template func<&register_listener<Event>>("register_listener"_hs)
     .template func<&trigger_event<Event>>("trigger_event"_hs)
-    .template func<&enqueue_event<Event>>("enqueue_event"_hs);
+    .template func<&enqueue_event<Event>>("enqueue_event"_hs)
+    .template func<&clear_event<Event>>("clear_event"_hs)
+    .template func<&update_event<Event>>("update_event"_hs);
 }
 
 sol::table open_dispatcher(const sol::this_state &s) {
   sol::state_view lua{ s };
-  auto dispatcher_module = lua.create_table();
+  auto entt_module = lua["entt"].get_or_create<sol::table>();
 
-  dispatcher_module.set_function(
-    "connect", [&](entt::id_type id, const sol::function &listener) {
-      if (listener.valid()) {
-        if (auto event_type = entt::resolve_type(id); event_type) {
-          return event_type.func("register_listener"_hs)
-            .invoke({}, std::ref(gDispatcher), listener);
+#define AS_DISPATCHER_REF(self) std::ref(self.as<entt::dispatcher>())
+
+  // clang-format off
+  entt_module.new_usertype<entt::dispatcher>("dispatcher",
+    sol::meta_function::construct,
+    sol::factories([] { return entt::dispatcher{}; }),
+
+    "trigger", [](const sol::object &self, const sol::table &evt) {
+      auto type_id = evt["type_id"]().get<entt::id_type>();
+      invoke_meta_func(type_id, "trigger_event"_hs, AS_DISPATCHER_REF(self), evt);
+    },
+    "enqueue", [](const sol::object &self, const sol::table &evt) {
+      auto type_id = evt["type_id"]().get<entt::id_type>();
+      invoke_meta_func(type_id, "enqueue_event"_hs, AS_DISPATCHER_REF(self), evt);
+    },
+    "clear", sol::overload(
+      &entt::dispatcher::clear<>,
+      [](const sol::object &self, entt::id_type type_id) {
+        invoke_meta_func(type_id, "clear_event"_hs, AS_DISPATCHER_REF(self));
+      }
+    ),
+    "update", sol::overload(
+      &entt::dispatcher::update,
+      [](const sol::object &self, entt::id_type type_id) {
+        invoke_meta_func(type_id, "update_event"_hs, AS_DISPATCHER_REF(self));
+      }
+    ),
+    "connect",
+        [](const sol::object &self, entt::id_type type_id, const sol::function &listener) {
+          if (listener.valid()) {
+            return invoke_meta_func(type_id, "register_listener"_hs,
+              AS_DISPATCHER_REF(self), listener);
+          }
+          return entt::meta_any{};
         }
-      }
-      return entt::meta_any{};
-    });
+    );
+  // clang-format off
 
-  dispatcher_module.set_function(
-    "trigger", [&](entt::id_type id, const sol::object &evt) {
-      if (auto event_type = entt::resolve_type(id); event_type) {
-        event_type.func("trigger_event"_hs)
-          .invoke({}, std::ref(gDispatcher), evt);
-      }
-    });
-  dispatcher_module.set_function(
-    "enqueue", [&](entt::id_type id, const sol::object &evt) {
-      if (auto event_type = entt::resolve_type(id); event_type) {
-        event_type.func("enqueue_event"_hs)
-          .invoke({}, std::ref(gDispatcher), evt);
-      }
-    });
+#undef AS_DISPATCHER_REF
 
-  return dispatcher_module;
+  return entt_module;
 }
 
 //
@@ -105,7 +131,8 @@ int main(int argc, char *argv[]) {
 #endif
 
   try {
-    gDispatcher.sink<TestEvent>().connect<&native_test_event_listener>();
+    entt::dispatcher dispatcher{};
+    dispatcher.sink<TestEvent>().connect<&native_test_event_listener>();
 
     register_meta_event<TestEvent>();
 
@@ -125,21 +152,23 @@ int main(int argc, char *argv[]) {
     );
     // clang-format on
 
+    lua["dispatcher"] = std::ref(dispatcher);
+
     lua.script(R"(
-      dispatcher = require('dispatcher')
+      --dispatcher = entt.dispatcher.new()
 
       function test_event_handler(e)
         print('[lua] received TestEvent{'
           .. e.value .. '} from: ' .. e.origin)
       end
 
-      conn = dispatcher.connect(TestEvent.type_id(), test_event_handler)
+      conn = dispatcher:connect(TestEvent.type_id(), test_event_handler)
     )");
 
-    lua.script("dispatcher.trigger(TestEvent.type_id(), TestEvent('lua', 7))");
+    lua.script("dispatcher:trigger(TestEvent('lua', 7))");
 
     lua.script(R"(
-      listener = {}
+      listener = { count = 2 }
       function listener.receive(evt)
         print('[lua] listener:receive(): TestEvent{'
           .. evt.value .. '} from: ' .. evt.origin)
@@ -148,21 +177,19 @@ int main(int argc, char *argv[]) {
         print('[lua] listener:method(): TestEvent{'
           .. evt.value .. '} from: ' .. evt.origin)
       end
-      
-      listener.connection =
-        dispatcher.connect(TestEvent.type_id(), listener.receive)
 
-      dispatcher.connect(TestEvent.type_id(), listener.method)
+      listener.connection =
+        dispatcher:connect(TestEvent.type_id(), listener.receive)
+      dispatcher:connect(TestEvent.type_id(), listener.method)
     )");
     lua.collect_garbage(); // listener.method will be detached now
-    lua.script(
-      "dispatcher.trigger(TestEvent.type_id(), TestEvent('lua', 117))");
+    lua.script("dispatcher:trigger(TestEvent('lua', 117))");
 
-    gDispatcher.trigger<TestEvent>("c++", 2);
+    dispatcher.trigger<TestEvent>("c++", 2);
 
     while (true) {
       lua.step_gc(4);
-      gDispatcher.update();
+      dispatcher.update();
 
       if (_kbhit()) break;
     }
