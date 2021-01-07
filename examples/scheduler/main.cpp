@@ -1,5 +1,5 @@
-#include <chrono>
 #include <thread>
+#include <chrono>
 #include <conio.h>
 #include "entt/entt.hpp"
 #include "sol/sol.hpp"
@@ -52,7 +52,7 @@ public:
 
 private:
   void _call(const std::string_view function_name) {
-    if (auto f = m_self[function_name]; f.valid()) f(m_self);
+    if (auto &f = m_self[function_name]; f.valid()) f(m_self);
   }
 
 private:
@@ -61,8 +61,7 @@ private:
   Delta m_frequency, m_time{ 0 };
 };
 
-template <typename Delta>
-sol::table open_scheduler(const sol::this_state &s) {
+template <typename Delta> sol::table open_scheduler(const sol::this_state &s) {
   sol::state_view lua{ s };
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
@@ -74,16 +73,19 @@ sol::table open_scheduler(const sol::this_state &s) {
     "size", &entt::scheduler<Delta>::size,
     "empty", &entt::scheduler<Delta>::empty,
     "clear", &entt::scheduler<Delta>::clear,
-    "attach", [](const sol::object &self, sol::table &&process,
-                 const sol::variadic_args &va, const sol::this_state &) {
-      auto &scheduler = self.as<entt::scheduler<Delta>>();
-      auto continuator =
-        scheduler.attach<ScriptProcess<Delta>>(std::move(process));
-      for (sol::table &&child_process : va) {
-        continuator =
-          continuator.then<ScriptProcess<Delta>>(std::move(child_process));
-      }
-    },
+    "attach",
+      [](const sol::object &self, sol::table &&process,
+         const sol::variadic_args &va) {
+        // @todo validate process before attach?
+
+        auto &scheduler = self.as<entt::scheduler<Delta>>();
+        auto continuator =
+          scheduler.attach<ScriptProcess<Delta>>(std::move(process));
+        for (sol::table &&child_process : va) {
+          continuator =
+            continuator.then<ScriptProcess<Delta>>(std::move(child_process));
+        }
+      },
     "update", &entt::scheduler<Delta>::update,
     "abort", &entt::scheduler<Delta>::abort
   );
@@ -158,7 +160,8 @@ int main(int argc, char *argv[]) {
 
     sol::state lua{};
     lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
-    lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler<fsec>)>, false);
+    lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler<fsec>)>,
+                false);
 
     lua.clear_package_loaders();
     lua.add_package_loader(lua_custom_require);
@@ -166,8 +169,8 @@ int main(int argc, char *argv[]) {
     lua["scheduler"] = std::ref(scheduler);
 
     lua.script(R"(
-      --local scheduler = entt.scheduler()
-
+      --local scheduler = entt.scheduler.new()
+      
       local test_process = require('test_process')
       my_proc = test_process.new('deploy_missile')
       my_proc.update = function(self, dt)
