@@ -30,7 +30,3 @@
 *.exe
 *.out
 *.app
-
-#
-build/
-examples/system

@@ -1,0 +1,29 @@
+#pragma once
+
+#include <sstream>
+
+struct Transform {
+  int x, y;
+
+  std::string to_string() const {
+    std::stringstream ss;
+    ss << "{ x=" << std::to_string(x) << ", y=" << std::to_string(y) << " }";
+    return ss.str();
+  }
+};
+
+void register_transform(sol::state &lua) {
+  // clang-format off
+  lua.new_usertype<Transform>("Transform",
+    "type_id", &entt::type_info<Transform>::id,
+    sol::call_constructor,
+    sol::factories([](int x, int y) {
+      return Transform{ x, y };
+    }),
+    "x", &Transform::x,
+    "y", &Transform::y,
+
+    sol::meta_function::to_string, &Transform::to_string
+  );
+  // clang-format on
+}

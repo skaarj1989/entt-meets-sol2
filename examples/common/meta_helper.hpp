@@ -1,7 +1,8 @@
 #pragma once
 
 entt::id_type get_type_id(const sol::table &obj) {
-  if (auto &f = obj["type_id"]; f.valid()) return f().get<entt::id_type>();
+  if (auto &f = obj["type_id"]; f.valid())
+    return f().get<entt::id_type>();
   return -1;
 }
 

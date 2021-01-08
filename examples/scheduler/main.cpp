@@ -7,6 +7,7 @@
 #define AUTO_ARG(x) decltype(x), x
 
 using namespace std::chrono_literals;
+using fsec = std::chrono::duration<float>;
 
 template <typename Delta>
 class ScriptProcess : public entt::process<ScriptProcess<Delta>, Delta> {
@@ -107,10 +108,10 @@ int lua_custom_require(lua_State *L) {
       }
 
       function process:init()
-        print(self.name .. ': init()')
+        print('[lua] ' .. self.name .. ': init()')
       end
       function process:update(dt)
-        print(self.name .. ': update('
+        print('[lua] ' .. self.name .. ': update('
           .. string.format("%.2f", dt) .. ')', self.count)
         self.count = self.count + 1
         if (self.count >= self.iterations) then
@@ -118,13 +119,13 @@ int lua_custom_require(lua_State *L) {
         end
       end
       function process:succeeded()
-        print(self.name .. ': succeeded()')
+        print('[lua] ' .. self.name .. ': succeeded()')
       end
       function process:failed()
-        print(self.name .. ': failed()')
+        print('[lua] ' .. self.name .. ': failed()')
       end
       function process:aborted()
-        print(self.name .. ': aborted()')
+        print('[lua] ' .. self.name .. ': aborted()')
       end
 
       function exports.new(name, iterations)
@@ -155,9 +156,6 @@ int main(int argc, char *argv[]) {
 #endif
 
   try {
-    using fsec = std::chrono::duration<float>;
-    entt::scheduler<fsec> scheduler{};
-
     sol::state lua{};
     lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
     lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler<fsec>)>,
@@ -166,6 +164,7 @@ int main(int argc, char *argv[]) {
     lua.clear_package_loaders();
     lua.add_package_loader(lua_custom_require);
 
+    entt::scheduler<fsec> scheduler{};
     lua["scheduler"] = std::ref(scheduler);
 
     lua.script(R"(
@@ -173,14 +172,14 @@ int main(int argc, char *argv[]) {
       
       local test_process = require('test_process')
       my_proc = test_process.new('deploy_missile')
-      my_proc.update = function(self, dt)
+      function my_proc:update(dt)
         self.fail()
       end
 
       scheduler:attach(
         test_process.new('open_silo'),
         my_proc,
-        test_process.new('') -- is rejected because 'my_proc' fails
+        test_process.new('launch_missile') -- is rejected because 'my_proc' fails
       )
 
       assert(not scheduler:empty())

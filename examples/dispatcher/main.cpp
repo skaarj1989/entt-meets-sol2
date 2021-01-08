@@ -1,5 +1,4 @@
 #include <conio.h>
-#include <iostream>
 #include "bond.hpp"
 
 #define AUTO_ARG(x) decltype(x), x
@@ -20,7 +19,6 @@ int main(int argc, char *argv[]) {
         return "#" + std::to_string(value) + " from " + origin;
       }
     };
-
     register_meta_event<TestEvent>();
 
     struct nativeListener_t {

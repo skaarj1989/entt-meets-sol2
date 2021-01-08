@@ -2,21 +2,22 @@
 
 #include "entt/entt.hpp"
 #include "sol/sol.hpp"
-#include "../meta_helper.hpp"
+#include "../common/meta_helper.hpp"
 
 template <typename Component>
 auto num_components(entt::registry &registry) {
   return registry.size<Component>();
 }
 template <typename Component>
-void emplace_component(entt::registry &registry, entt::entity entity,
-                       const sol::table &instance) {
-  const auto comp = instance.valid() ? instance.as<Component>() : Component{};
-  registry.emplace_or_replace<Component>(entity, comp);
+auto emplace_component(entt::registry &registry, entt::entity entity,
+                       const sol::table &instance, const sol::this_state &s) {
+  auto &comp = registry.emplace_or_replace<Component>(
+    entity, instance.valid() ? instance.as<Component>() : Component{});
+  return sol::make_object(s, std::ref(comp));
 }
 template <typename Component>
-sol::object get_component(entt::registry &registry, entt::entity entity,
-                          const sol::this_state &s) {
+auto get_component(entt::registry &registry, entt::entity entity,
+     const sol::this_state &s) {
   auto &comp = registry.get_or_emplace<Component>(entity);
   return sol::make_object(s, std::ref(comp));
 }
@@ -109,11 +110,15 @@ sol::table open_registry(const sol::this_state &s) {
       },
 
     "emplace",
-      [](const sol::object &self, entt::entity entity, const sol::table &comp) {
-        if (!comp.valid()) return;
-          invoke_meta_func(get_type_id(comp), "emplace"_hs,
-            AS_REGISTRY_REF(self), entity, comp);
-        },
+      [](const sol::object &self, entt::entity entity, const sol::table &comp,
+         const sol::this_state &s) -> sol::optional<sol::object> {
+        if (!comp.valid()) return sol::nil_t{};
+        if (auto maybe_any = invoke_meta_func(get_type_id(comp), "emplace"_hs,
+          AS_REGISTRY_REF(self), entity, comp, s); maybe_any) {
+          return maybe_any.cast<sol::object>();
+        }
+        return sol::nil_t{};
+      },
     "remove",
       [](const sol::object &self, entt::entity entity, const sol::object &type_or_id) {
         auto maybe_any =
@@ -145,6 +150,7 @@ sol::table open_registry(const sol::this_state &s) {
         invoke_meta_func(deduce_type(type_or_id), "get"_hs,
           AS_REGISTRY_REF(self), entity, s);
       
+      assert(maybe_any);
       return maybe_any ? maybe_any.cast<sol::object>() : sol::nil_t{};
     },
     "clear",

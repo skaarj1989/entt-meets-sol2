@@ -2,7 +2,7 @@
 
 #include "entt/entt.hpp"
 #include "sol/sol.hpp"
-#include "../meta_helper.hpp"
+#include "../common/meta_helper.hpp"
 
 template <typename Event>
 auto register_listener(entt::dispatcher &dispatcher, const sol::function &f) {
@@ -98,11 +98,9 @@ sol::table open_dispatcher(const sol::this_state &s) {
     "connect",
       [](const sol::object &self, const sol::object &type_or_id,
          const sol::function &listener) {
-        if (listener.valid()) {
-          return invoke_meta_func(deduce_type(type_or_id), "register_listener"_hs,
-            AS_DISPATCHER_REF(self), listener);
-        }
-        return entt::meta_any{};
+        if (!listener.valid()) return entt::meta_any{};
+        return invoke_meta_func(deduce_type(type_or_id), "register_listener"_hs,
+          AS_DISPATCHER_REF(self), listener);
       }
   );
   // clang-format off
