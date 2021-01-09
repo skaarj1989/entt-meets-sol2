@@ -33,6 +33,8 @@ template <typename Component> void clear_component(entt::registry &registry) {
 }
 
 template <typename Component> void register_meta_component() {
+  using namespace entt::literals;
+  
   entt::meta<Component>().type();
   entt::meta<Component>()
     .template func<&num_components<Component>>("size"_hs)
@@ -52,6 +54,8 @@ auto collect_types(const sol::variadic_args &va) {
 }
 
 sol::table open_registry(const sol::this_state &s) {
+  using namespace entt::literals;
+
   sol::state_view lua{ s };
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 

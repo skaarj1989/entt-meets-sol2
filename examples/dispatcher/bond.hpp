@@ -50,6 +50,8 @@ template <typename Event> void update_event(entt::dispatcher &dispatcher) {
 }
 
 template <typename Event> void register_meta_event() {
+  using namespace entt::literals;
+
   entt::meta<Event>().type();
   entt::meta<Event>()
     .template func<&register_listener<Event>>("register_listener"_hs)
@@ -60,6 +62,8 @@ template <typename Event> void register_meta_event() {
 }
 
 sol::table open_dispatcher(const sol::this_state &s) {
+  using namespace entt::literals;
+  
   sol::state_view lua{ s };
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
