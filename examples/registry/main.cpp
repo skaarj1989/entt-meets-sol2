@@ -49,20 +49,20 @@ int main(int argc, char *argv[]) {
 
     lua.script(R"(
       view = registry:runtime_view(Transform)
-      assert(not view:empty())
+      assert(view:size_hint() > 0)
       
       local koopa = registry:create()
       registry:emplace(koopa, Transform(100, -200))
       transform = registry:get(koopa, Transform)
       print('Koopa position = ' .. tostring(transform))
       
-      assert(view:size() == 2)
+      assert(view:size_hint() == 2)
 
       view:each(function(entity)
         registry:remove(entity, Transform)
       end)
 
-      assert(view:size() == 0)
+      assert(view:size_hint() == 0)
     )");
   } catch (const std::exception &e) {
     std::cout << "exception: " << e.what();

@@ -16,6 +16,14 @@ struct ScriptComponent {
   } hooks;
 };
 
+void inspect_script(ScriptComponent &script) {
+  script.self.for_each([](const sol::object &key, const sol::object &value) {
+    std::cout << key.as<std::string>() << ": "
+              << sol::type_name(value.lua_state(), value.get_type())
+              << std::endl;
+  });
+}
+
 void init_script(entt::registry &registry, entt::entity entity) {
   auto &script = registry.get<ScriptComponent>(entity);
   assert(script.self.valid());
@@ -23,16 +31,16 @@ void init_script(entt::registry &registry, entt::entity entity) {
   assert(script.hooks.update.valid());
 
   script.self["id"] = entity;
+  //script.self["id"] = sol::readonly_property([&entity] { return entity; });
   script.self["owner"] = std::ref(registry);
   if (auto &f = script.self["init"]; f.valid()) f(script.self);
+  //inspect_script(script);
 }
-
 void release_script(entt::registry &registry, entt::entity entity) {
   auto &script = registry.get<ScriptComponent>(entity);
   if (auto &f = script.self["destroy"]; f.valid()) f(script.self);
   script.self.abandon();
 }
-
 void script_system_update(entt::registry &registry, fsec delta_time) {
   auto view = registry.view<ScriptComponent>();
   for (auto entity : view) {
@@ -41,6 +49,10 @@ void script_system_update(entt::registry &registry, fsec delta_time) {
     script.hooks.update(script.self, delta_time);
   }
 }
+
+//
+//
+//
 
 int main(int argc, char* argv[]) {
 #ifdef _DEBUG

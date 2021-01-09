@@ -15,7 +15,7 @@ struct Transform {
 void register_transform(sol::state &lua) {
   // clang-format off
   lua.new_usertype<Transform>("Transform",
-    "type_id", &entt::type_info<Transform>::id,
+    "type_id", &entt::type_hash<Transform>::value,
     sol::call_constructor,
     sol::factories([](int x, int y) {
       return Transform{ x, y };

@@ -16,7 +16,7 @@ cmake ..
 - Expose `registry` to Lua scripts:
   - Manage entity lifetime
   - Set components
-  - Get component by value or reference
+  - Get component by reference
   - `runtime_view`
   - Some of **MonoBehaviour** functionality
 
@@ -33,7 +33,7 @@ sol::state lua{};
 lua.require("dispatcher" ...);
 
 lua.new_usertype<Transform>("Transform",
-  "type_id", &entt::type_info<Transform>::id,
+  "type_id", &entt::type_hash<Transform>::value,
   sol::call_constructor,
   sol::factories([](int x, int y) {
     return Transform{ x, y };
@@ -76,6 +76,8 @@ registry:runtime_view(Transform, DeletionFlag):each(
 Want something like **MonoBehaviour** in Unity?
 [examples/system](https://github.com/skaarj1989/entt-meets-sol2/tree/main/examples/system)
 
+### Lua script
+
 ```lua
 local node = {}
 function node:init()
@@ -91,6 +93,8 @@ end
 
 return node
 ```
+
+### c++ setup
 
 ```cpp
 struct ScriptComponent {
@@ -135,7 +139,7 @@ sol::state lua{}
 lua.require("dispatcher", ...)
 
 lua.new_usertype<an_event>("an_event",
-  "type_id", &entt::type_info<an_event>::id,
+  "type_id", &entt::type_hash<an_event>::value,
   sol::call_constructor,
   sol::factories([](int value) {
     return an_event{ value };

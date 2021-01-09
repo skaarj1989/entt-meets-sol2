@@ -12,7 +12,7 @@ using fsec = std::chrono::duration<float>;
 template <typename Delta>
 class ScriptProcess : public entt::process<ScriptProcess<Delta>, Delta> {
 public:
-  ScriptProcess(sol::table &&t, const Delta &frequency = 250ms)
+  ScriptProcess(sol::table &&t, Delta frequency = 250ms)
       : m_self{ t }, m_update{ m_self["update"] }, m_frequency{ frequency } {
     m_self["succeed"] = [&] { succeed(); };
     m_self["abort"] = [&] { abort(); };
@@ -38,7 +38,7 @@ public:
     _call("init");
   }
 
-  void update(const Delta &dt, void *) {
+  void update(Delta dt, void *) {
     if (!m_update.valid()) return fail();
 
     m_time += dt;
@@ -75,13 +75,11 @@ template <typename Delta> sol::table open_scheduler(const sol::this_state &s) {
     "empty", &entt::scheduler<Delta>::empty,
     "clear", &entt::scheduler<Delta>::clear,
     "attach",
-      [](const sol::object &self, sol::table &&process,
+      [](entt::scheduler<Delta> &self, sol::table &&process,
          const sol::variadic_args &va) {
         // @todo validate process before attach?
-
-        auto &scheduler = self.as<entt::scheduler<Delta>>();
         auto continuator =
-          scheduler.attach<ScriptProcess<Delta>>(std::move(process));
+          self.attach<ScriptProcess<Delta>>(std::move(process));
         for (sol::table &&child_process : va) {
           continuator =
             continuator.then<ScriptProcess<Delta>>(std::move(child_process));

@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 
     // clang-format off
     lua.new_usertype<TestEvent>("TestEvent",
-      "type_id", &entt::type_info<TestEvent>::id,
+      "type_id", &entt::type_hash<TestEvent>::value,
       sol::call_constructor,
       sol::factories([](const char *origin, int value) {
         return TestEvent{ origin, value };

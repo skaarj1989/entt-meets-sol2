@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.13.4...3.19)
 project(entt-meets-sol2)
-project(entt-meets-sol2)
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   message(
     FATAL_ERROR
@@ -29,8 +28,8 @@ set_target_properties(entt::entt_header_only
 )
 
 set(lua_DIR "${EXTERN_DIR}/lua")
-add_library(lua::lua SHARED IMPORTED)
-set_target_properties(lua::lua
+add_library(Lua::Lua SHARED IMPORTED)
+set_target_properties(Lua::Lua
 	PROPERTIES
 		INTERFACE_INCLUDE_DIRECTORIES "${lua_DIR}/include"
 		IMPORTED_IMPLIB "${lua_DIR}/liblua54.a"
@@ -43,7 +42,7 @@ foreach(build_type IN LISTS CMAKE_CONFIGURATION_TYPES)
 endforeach()
 
 add_library(sol2::sol2_header_only INTERFACE IMPORTED)
-target_link_libraries(sol2::sol2_header_only INTERFACE lua::lua)
+target_link_libraries(sol2::sol2_header_only INTERFACE Lua::Lua)
 target_compile_definitions(sol2::sol2_header_only
 	INTERFACE
 		SOL_ALL_SAFETIES_ON
