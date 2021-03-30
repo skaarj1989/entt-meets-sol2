@@ -34,7 +34,7 @@ template <typename Component> void clear_component(entt::registry &registry) {
 
 template <typename Component> void register_meta_component() {
   using namespace entt::literals;
-  
+
   entt::meta<Component>().type();
   entt::meta<Component>()
     .template func<&num_components<Component>>("size"_hs)
@@ -56,7 +56,7 @@ auto collect_types(const sol::variadic_args &va) {
 sol::table open_registry(const sol::this_state &s) {
   using namespace entt::literals;
 
-  sol::state_view lua{ s };
+  sol::state_view lua{s};
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
   // clang-format off
@@ -80,7 +80,7 @@ sol::table open_registry(const sol::this_state &s) {
       sol::overload(
       &entt::registry::size,
         [](entt::registry &self, const sol::object &type_or_id) {
-          auto maybe_any =
+          const auto maybe_any =
             invoke_meta_func(deduce_type(type_or_id), "size"_hs, std::ref(self));
           return maybe_any ? maybe_any.cast<size_t>() : 0;
         }
@@ -90,8 +90,7 @@ sol::table open_registry(const sol::this_state &s) {
       sol::overload(
         &entt::registry::empty<>,
         [](entt::registry &self, entt::id_type type_id) {
-          // @todo
-          //invoke_meta_func(entt::resolve_type(id), "empty"_hs,)
+          // TODO: invoke_meta_func(entt::resolve_type(id), "empty"_hs,)
         }
       ),
     "valid", &entt::registry::valid,
@@ -109,32 +108,28 @@ sol::table open_registry(const sol::this_state &s) {
       [](entt::registry &self, entt::entity entity, const sol::table &comp,
          const sol::this_state &s) -> sol::object {
         if (!comp.valid()) return sol::lua_nil_t{};
-        if (auto maybe_any = invoke_meta_func(get_type_id(comp), "emplace"_hs,
-          std::ref(self), entity, comp, s); maybe_any) {
-          return maybe_any.cast<sol::object>();
-        }
-        return sol::lua_nil_t{};
+        const auto maybe_any = invoke_meta_func(get_type_id(comp), "emplace"_hs,
+          std::ref(self), entity, comp, s);
+        return maybe_any ? maybe_any.cast<sol::object>() : sol::lua_nil_t{};
       },
     "remove",
       [](entt::registry &self, entt::entity entity, const sol::object &type_or_id) {
-        auto maybe_any =
+        const auto maybe_any =
           invoke_meta_func(deduce_type(type_or_id), "remove"_hs,
             std::ref(self), entity);
-        
         return maybe_any ? maybe_any.cast<size_t>() : 0;
       },
     "has",
       [](entt::registry &self, entt::entity entity, const sol::object &type_or_id) {
-        auto maybe_any =
+        const auto maybe_any =
           invoke_meta_func(deduce_type(type_or_id), "has"_hs,
             std::ref(self), entity);
-        
         return maybe_any ? maybe_any.cast<bool>() : false;
       },
     "any",
       [](const sol::table &self, entt::entity entity, const sol::variadic_args &va) {
         const auto types = collect_types(va);
-        const sol::function &has{ self["has"] };
+        const sol::function &has{self["has"]};
         return std::any_of(types.begin(), types.end(),
           [&](auto type_id) { return has(self, entity, type_id).get<bool>(); }
         );
@@ -142,10 +137,9 @@ sol::table open_registry(const sol::this_state &s) {
     "get",
       [](entt::registry &self, entt::entity entity, const sol::object &type_or_id,
          const sol::this_state &s) {
-      auto maybe_any =
+      const auto maybe_any =
         invoke_meta_func(deduce_type(type_or_id), "get"_hs,
           std::ref(self), entity, s);
-      
       assert(maybe_any);
       return maybe_any ? maybe_any.cast<sol::object>() : sol::lua_nil_t{};
     },

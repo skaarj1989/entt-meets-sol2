@@ -31,10 +31,10 @@ void init_script(entt::registry &registry, entt::entity entity) {
   assert(script.hooks.update.valid());
 
   script.self["id"] = entity;
-  //script.self["id"] = sol::readonly_property([&entity] { return entity; });
+  // script.self["id"] = sol::readonly_property([&entity] { return entity; });
   script.self["owner"] = std::ref(registry);
   if (auto &f = script.self["init"]; f.valid()) f(script.self);
-  //inspect_script(script);
+  // inspect_script(script);
 }
 void release_script(entt::registry &registry, entt::entity entity) {
   auto &script = registry.get<ScriptComponent>(entity);
@@ -54,7 +54,7 @@ void script_system_update(entt::registry &registry, fsec delta_time) {
 //
 //
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
 #ifdef _DEBUG
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     registry.on_construct<ScriptComponent>().connect<&init_script>();
     registry.on_destroy<ScriptComponent>().connect<&release_script>();
 
-    auto behaviorScript = lua.load(R"(
+    auto behavior_script = lua.load(R"(
       node = {}
       function node:init()
         print('node [#' .. self.id .. '] init()', self)
@@ -88,29 +88,27 @@ int main(int argc, char* argv[]) {
 
       return node
     )");
-    assert(behaviorScript.valid());
+    assert(behavior_script.valid());
     for (int i = 0; i < 5; ++i) {
       auto e = registry.create();
-      registry.emplace<Transform>(e, Transform{ i, i });
-      registry.emplace<ScriptComponent>(e, behaviorScript.call());
+      registry.emplace<Transform>(e, Transform{i, i});
+      registry.emplace<ScriptComponent>(e, behavior_script.call());
     }
 
     using clock = std::chrono::high_resolution_clock;
     constexpr auto target_frame_time = 500ms;
-    fsec delta_time{ target_frame_time };
+    fsec delta_time{target_frame_time};
 
     while (true) {
-      auto beginTicks = clock::now();
+      const auto begin_ticks = clock::now();
       script_system_update(registry, delta_time);
       std::this_thread::sleep_for(target_frame_time);
-      delta_time = std::chrono::duration_cast<fsec>(clock::now() - beginTicks);
+      delta_time = std::chrono::duration_cast<fsec>(clock::now() - begin_ticks);
       if (delta_time > 1s) delta_time = target_frame_time;
 
       if (_kbhit()) break;
     }
-
     registry.clear();
-
   } catch (const std::exception &e) {
     std::cout << "exception: " << e.what();
     return -1;

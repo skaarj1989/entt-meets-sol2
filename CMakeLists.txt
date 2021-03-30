@@ -19,7 +19,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib") # .lib
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib") # .dll
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin") # .exe
 
-set(EXTERN_DIR "${PROJECT_SOURCE_DIR}/extern")
+# --- Third-party ---
+
+set(EXTERN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern")
 
 add_library(entt::entt_header_only INTERFACE IMPORTED)
 set_target_properties(entt::entt_header_only
@@ -35,21 +37,26 @@ set_target_properties(Lua::Lua
 		IMPORTED_IMPLIB "${lua_DIR}/liblua54.a"
 		IMPORTED_LOCATION "${lua_DIR}/lua54.dll"
 )
+
+#add_custom_command(TARGET Lua::Lua
+
 foreach(build_type IN LISTS CMAKE_CONFIGURATION_TYPES)
 	file(COPY "${lua_DIR}/lua54.dll"
 		DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${build_type}"
 	)
 endforeach()
 
-add_library(sol2::sol2_header_only INTERFACE IMPORTED)
-target_link_libraries(sol2::sol2_header_only INTERFACE Lua::Lua)
-target_compile_definitions(sol2::sol2_header_only
+add_library(sol2::sol2 INTERFACE IMPORTED)
+target_link_libraries(sol2::sol2 INTERFACE Lua::Lua)
+target_compile_definitions(sol2::sol2
 	INTERFACE
 		SOL_ALL_SAFETIES_ON
 )
-set_target_properties(sol2::sol2_header_only
+set_target_properties(sol2::sol2
 	PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${EXTERN_DIR}/sol2/single/include"
+		INTERFACE_INCLUDE_DIRECTORIES "${EXTERN_DIR}/sol2/include"
 )
+
+# ---
 
 add_subdirectory(examples)

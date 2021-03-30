@@ -40,8 +40,8 @@ int main(int argc, char *argv[]) {
       transform.x = transform.x + 10
       print('Bowser position = ' .. tostring(transform))
     )");
-    
-    entt::entity bowser{ lua["bowser"] };
+
+    entt::entity bowser{lua["bowser"]};
     auto t = registry.try_get<Transform>(bowser);
     assert(t);
     Transform &transform = lua["transform"];

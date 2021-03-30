@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
   try {
     struct TestEvent {
       std::string origin;
-      int value{ -1 };
+      int value{-1};
 
       std::string to_string() const {
         return "#" + std::to_string(value) + " from " + origin;
@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     };
     register_meta_event<TestEvent>();
 
-    struct nativeListener_t {
+    struct NativeListener {
       void receive(const TestEvent &evt) {
         std::cout << "[c++] received TestEvent: " << evt.to_string()
                   << std::endl;
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     } listener;
 
     entt::dispatcher dispatcher{};
-    dispatcher.sink<TestEvent>().connect<&nativeListener_t::receive>(listener);
+    dispatcher.sink<TestEvent>().connect<&NativeListener::receive>(listener);
 
     sol::state lua{};
     lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
       "type_id", &entt::type_hash<TestEvent>::value,
       sol::call_constructor,
       sol::factories([](const char *origin, int value) {
-        return TestEvent{ origin, value };
+        return TestEvent{origin, value};
       }),
       "origin", &TestEvent::origin,
       "value", &TestEvent::value,

@@ -10,9 +10,8 @@ auto register_listener(entt::dispatcher &dispatcher, const sol::function &f,
   assert(f.valid());
   std::cout << "Registered lua listener: " << f.pointer() << std::endl;
 
-  class ScriptListener {
-  public:
-    ScriptListener(const sol::function &f) : callback{ f } {}
+  struct ScriptListener {
+    ScriptListener(const sol::function &f) : callback{f} {}
     ~ScriptListener() {
       connection.release();
       std::cout << "Unregistered lua listener: " << callback.pointer()
@@ -27,7 +26,7 @@ auto register_listener(entt::dispatcher &dispatcher, const sol::function &f,
     entt::connection connection;
   };
 
-  auto listener = std::make_shared<ScriptListener>(f);
+  const auto listener = std::make_shared<ScriptListener>(f);
   listener->connection =
     dispatcher.sink<Event>().connect<&ScriptListener::receive>(*listener);
   return sol::make_object(s, listener);
@@ -63,8 +62,8 @@ template <typename Event> void register_meta_event() {
 
 sol::table open_dispatcher(const sol::this_state &s) {
   using namespace entt::literals;
-  
-  sol::state_view lua{ s };
+
+  sol::state_view lua{s};
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
   // clang-format off
@@ -100,14 +99,14 @@ sol::table open_dispatcher(const sol::this_state &s) {
       ),
     "connect",
       [](entt::dispatcher &self, const sol::object &type_or_id,
-         const sol::function &listener, sol::this_state &s) {
-        if (!listener.valid()) sol::lua_nil_t{};
-        auto maybe_any = invoke_meta_func(deduce_type(type_or_id),
+         const sol::function &listener, sol::this_state &s) -> sol::object {
+        if (!listener.valid()) return sol::lua_nil_t{};
+        const auto maybe_any = invoke_meta_func(deduce_type(type_or_id),
           "register_listener"_hs, std::ref(self), listener, s);
         return maybe_any ? maybe_any.cast<sol::object>() : sol::lua_nil_t{};
       }
   );
-  // clang-format off
+  // clang-format on
 
   return entt_module;
 }

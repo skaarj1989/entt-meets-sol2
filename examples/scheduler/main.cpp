@@ -13,7 +13,7 @@ template <typename Delta>
 class ScriptProcess : public entt::process<ScriptProcess<Delta>, Delta> {
 public:
   ScriptProcess(sol::table &&t, Delta frequency = 250ms)
-      : m_self{ t }, m_update{ m_self["update"] }, m_frequency{ frequency } {
+      : m_self{t}, m_update{m_self["update"]}, m_frequency{frequency} {
     m_self["succeed"] = [&] { succeed(); };
     m_self["abort"] = [&] { abort(); };
     m_self["fail"] = [&] { fail(); };
@@ -59,11 +59,11 @@ private:
 private:
   sol::table m_self;
   sol::function m_update;
-  Delta m_frequency, m_time{ 0 };
+  Delta m_frequency, m_time{0};
 };
 
 template <typename Delta> sol::table open_scheduler(const sol::this_state &s) {
-  sol::state_view lua{ s };
+  sol::state_view lua{s};
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
   // clang-format off
@@ -77,7 +77,7 @@ template <typename Delta> sol::table open_scheduler(const sol::this_state &s) {
     "attach",
       [](entt::scheduler<Delta> &self, sol::table &&process,
          const sol::variadic_args &va) {
-        // @todo validate process before attach?
+        // TODO: validate process before attach?
         auto continuator =
           self.attach<ScriptProcess<Delta>>(std::move(process));
         for (sol::table &&child_process : va) {
@@ -186,16 +186,16 @@ int main(int argc, char *argv[]) {
 
     using clock = std::chrono::high_resolution_clock;
     constexpr auto target_frame_time = 16ms;
-    fsec delta_time{ target_frame_time };
+    fsec delta_time{target_frame_time};
 
     while (!scheduler.empty()) {
-      auto beginTicks = clock::now();
+      const auto begin_ticks = clock::now();
       lua.step_gc(4);
 
       scheduler.update(delta_time);
       std::this_thread::sleep_for(target_frame_time);
 
-      delta_time = std::chrono::duration_cast<fsec>(clock::now() - beginTicks);
+      delta_time = std::chrono::duration_cast<fsec>(clock::now() - begin_ticks);
       if (delta_time > 1s) delta_time = target_frame_time;
 
       if (_kbhit()) break;
@@ -204,6 +204,6 @@ int main(int argc, char *argv[]) {
     std::cout << "exception: " << e.what();
     return -1;
   }
-
+  
   return 0;
 }
