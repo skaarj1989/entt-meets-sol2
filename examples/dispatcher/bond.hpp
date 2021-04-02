@@ -29,7 +29,7 @@ auto register_listener(entt::dispatcher &dispatcher, const sol::function &f,
   const auto listener = std::make_shared<ScriptListener>(f);
   listener->connection =
     dispatcher.sink<Event>().connect<&ScriptListener::receive>(*listener);
-  return sol::make_object(s, listener);
+  return sol::make_reference(s, std::move(listener));
 }
 template <typename Event>
 void trigger_event(entt::dispatcher &dispatcher, const sol::table &evt) {
@@ -103,7 +103,7 @@ sol::table open_dispatcher(const sol::this_state &s) {
         if (!listener.valid()) return sol::lua_nil_t{};
         const auto maybe_any = invoke_meta_func(deduce_type(type_or_id),
           "register_listener"_hs, std::ref(self), listener, s);
-        return maybe_any ? maybe_any.cast<sol::object>() : sol::lua_nil_t{};
+        return maybe_any ? maybe_any.cast<sol::reference>() : sol::lua_nil_t{};
       }
   );
   // clang-format on

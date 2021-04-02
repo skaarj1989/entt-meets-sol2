@@ -12,17 +12,17 @@ auto emplace_component(entt::registry &registry, entt::entity entity,
                        const sol::table &instance, const sol::this_state &s) {
   auto &comp = registry.emplace_or_replace<Component>(
     entity, instance.valid() ? instance.as<Component>() : Component{});
-  return sol::make_object(s, std::ref(comp));
+  return sol::make_reference(s, std::ref(comp));
 }
 template <typename Component>
 auto get_component(entt::registry &registry, entt::entity entity,
                    const sol::this_state &s) {
   auto &comp = registry.get_or_emplace<Component>(entity);
-  return sol::make_object(s, std::ref(comp));
+  return sol::make_reference(s, std::ref(comp));
 }
 template <typename Component>
 bool has_component(entt::registry &registry, entt::entity entity) {
-  return registry.has<Component>(entity);
+  return registry.any_of<Component>(entity);
 }
 template <typename Component>
 auto remove_component(entt::registry &registry, entt::entity entity) {
@@ -110,7 +110,7 @@ sol::table open_registry(const sol::this_state &s) {
         if (!comp.valid()) return sol::lua_nil_t{};
         const auto maybe_any = invoke_meta_func(get_type_id(comp), "emplace"_hs,
           std::ref(self), entity, comp, s);
-        return maybe_any ? maybe_any.cast<sol::object>() : sol::lua_nil_t{};
+        return maybe_any ? maybe_any.cast<sol::reference>() : sol::lua_nil_t{};
       },
     "remove",
       [](entt::registry &self, entt::entity entity, const sol::object &type_or_id) {
@@ -140,8 +140,7 @@ sol::table open_registry(const sol::this_state &s) {
       const auto maybe_any =
         invoke_meta_func(deduce_type(type_or_id), "get"_hs,
           std::ref(self), entity, s);
-      assert(maybe_any);
-      return maybe_any ? maybe_any.cast<sol::object>() : sol::lua_nil_t{};
+      return maybe_any ? maybe_any.cast<sol::reference>() : sol::lua_nil_t{};
     },
     "clear",
       sol::overload(

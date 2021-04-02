@@ -16,7 +16,7 @@ struct ScriptComponent {
   } hooks;
 };
 
-void inspect_script(ScriptComponent &script) {
+void inspect_script(const ScriptComponent &script) {
   script.self.for_each([](const sol::object &key, const sol::object &value) {
     std::cout << key.as<std::string>() << ": "
               << sol::type_name(value.lua_state(), value.get_type())
@@ -30,8 +30,8 @@ void init_script(entt::registry &registry, entt::entity entity) {
   script.hooks.update = script.self["update"];
   assert(script.hooks.update.valid());
 
-  script.self["id"] = entity;
-  // script.self["id"] = sol::readonly_property([&entity] { return entity; });
+  // script.self["id"] = entity;
+  script.self["id"] = sol::readonly_property([entity] { return entity; });
   script.self["owner"] = std::ref(registry);
   if (auto &f = script.self["init"]; f.valid()) f(script.self);
   // inspect_script(script);
@@ -75,15 +75,15 @@ int main(int argc, char *argv[]) {
     auto behavior_script = lua.load(R"(
       node = {}
       function node:init()
-        print('node [#' .. self.id .. '] init()', self)
+        print('node [#' .. self.id() .. '] init()', self)
       end
       function node:update(dt)
-        local transform = self.owner:get(self.id, Transform)
+        local transform = self.owner:get(self.id(), Transform)
         transform.x = transform.x + 1
-        print('node [#' .. self.id .. '] update()', transform)
+        print('node [#' .. self.id() .. '] update()', transform)
       end
       function node:destroy()
-        print('bye, bye! from: node #' .. self.id)
+        print('bye, bye! from: node #' .. self.id())
       end
 
       return node

@@ -1,5 +1,13 @@
 # EnTT meets Sol2
 
+[![CodeFactor Grade](https://img.shields.io/codefactor/grade/github/skaarj1989/entt-meets-sol2)](https://www.codefactor.io/repository/github/skaarj1989/entt-meets-sol2)
+![GitHub](https://img.shields.io/github/license/skaarj1989/entt-meets-sol2.svg)
+
+### Requirements
+
+- EnTT v.3.7.0 (latest)
+- sol2 v3.2.2 (latest)
+
 ### Build examples
 
 ```bash
@@ -81,10 +89,10 @@ Want something like **MonoBehaviour** in Unity?
 ```lua
 local node = {}
 function node:init()
-  self.owner:emplace(self.id, Transform(5, 9))
+  self.owner:emplace(self.id(), Transform(5, 9))
 end
 function node:update(dt)
-  local transform = self.owner:get(self.id, Transform)
+  local transform = self.owner:get(self.id(), Transform)
   transform.x = transform.x + 1
 end
 function node:destroy()
