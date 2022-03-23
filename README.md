@@ -8,11 +8,34 @@
 - EnTT v.3.9.0 (latest)
 - sol2 v3.2.2 (latest)
 
-## Build examples
+## Building
 
 ```bash
-mkdir build && cd build
-cmake ..
+> git clone https://github.com/skaarj1989/entt-meets-sol2.git
+> cd entt-meets-sol2
+> cmake -S . -B build
+```
+
+### vcpkg quickstart
+
+https://github.com/microsoft/vcpkg#getting-started
+
+```bash
+> git clone https://github.com/microsoft/vcpkg
+> ./vcpkg/bootstrap-vcpkg.bat
+```
+
+Add the following environment variables
+
+```bash
+VCPKG_ROOT=path_to_vcpkg
+VCPKG_DEFAULT_TRIPLET=x64-windows
+```
+
+Install required dependencies
+
+```bash
+> ./vcpkg install entt sol2 lua
 ```
 
 ## Registry

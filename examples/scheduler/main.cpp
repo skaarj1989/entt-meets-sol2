@@ -69,7 +69,6 @@ void extend_path(sol::state &lua) {
 [[nodiscard]] int lua_custom_require(lua_State *L) {
   if (const auto path = sol::stack::get<std::string>(L, 1);
       path == "test_process") {
-
     const auto filename = "lua/test_process.lua"s;
     std::ifstream f{filename};
     if (!f.is_open())
