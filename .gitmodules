@@ -1,6 +1,0 @@
-[submodule "extern/entt"]
-	path = extern/entt
-	url = git@github.com:skypjack/entt.git
-[submodule "extern/sol2"]
-	path = extern/sol2
-	url = git@github.com:ThePhD/sol2.git
