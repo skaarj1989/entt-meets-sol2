@@ -3,12 +3,12 @@
 [![CodeFactor Grade](https://img.shields.io/codefactor/grade/github/skaarj1989/entt-meets-sol2)](https://www.codefactor.io/repository/github/skaarj1989/entt-meets-sol2)
 ![GitHub](https://img.shields.io/github/license/skaarj1989/entt-meets-sol2.svg)
 
-### Requirements
+## Requirements
 
-- EnTT v.3.7.0 (latest)
+- EnTT v.3.9.0 (latest)
 - sol2 v3.2.2 (latest)
 
-### Build examples
+## Build examples
 
 ```bash
 mkdir build && cd build
@@ -53,12 +53,13 @@ lua.new_usertype<Transform>("Transform",
 
 ```cpp
 entt::registry registry{};
-lua["registry"] = std::ref(registry);
+lua["registry"] = std::ref(registry); // Make the registry available to Lua
 ```
 
 ### Lua script
 
 ```lua
+-- Create a registry inside a script
 registry = entt.registry.new()
 ```
 
@@ -158,9 +159,9 @@ lua.new_usertype<an_event>("an_event",
 
 ```cpp
 entt::dispatcher dispatcher{};
-lua["dispatcher"] = std::ref(dispatcher);
+lua["dispatcher"] = std::ref(dispatcher); // Make the dispatcher available to Lua
 
-// load script ...
+// load a script ...
 
 dispatcher.update(); // inside loop
 ```
@@ -168,6 +169,7 @@ dispatcher.update(); // inside loop
 ### Lua script
 
 ```lua
+-- Create a dispatcher in a script
 dispatcher = entt.dispatcher.new()
 ```
 
@@ -212,7 +214,7 @@ lua.require("scheduler", ...);
 
 ```cpp
 entt::scheduler scheduler{};
-lua["scheduler"] = std::ref(scheduler);
+lua["scheduler"] = std::ref(scheduler); // Make the scheduler available to Lua
 
 scheduler.update(dt); // inside loop
 ```
@@ -220,6 +222,7 @@ scheduler.update(dt); // inside loop
 ### Lua script
 
 ```lua
+-- Create a scheduler in a script
 scheduler = entt.scheduler.new()
 ```
 

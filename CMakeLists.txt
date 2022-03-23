@@ -1,4 +1,12 @@
-cmake_minimum_required(VERSION 3.13.4...3.19)
+cmake_minimum_required(VERSION 3.20)
+
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  set(CMAKE_TOOLCHAIN_FILE
+      "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING "")
+endif()
+message(STATUS "TOOLCHAIN: ${CMAKE_TOOLCHAIN_FILE}")
+
 project(entt-meets-sol2)
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   message(
@@ -19,44 +27,19 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib") # .lib
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib") # .dll
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin") # .exe
 
-# --- Third-party ---
+include(cmake/AddExample.cmake)
+include(cmake/AddScripts.cmake)
 
-set(EXTERN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern")
+find_package(entt CONFIG REQUIRED)
 
-add_library(entt::entt_header_only INTERFACE IMPORTED)
-set_target_properties(entt::entt_header_only
-	PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${EXTERN_DIR}/entt/single_include"
-)
+find_package(Lua REQUIRED)
+add_library(Lua INTERFACE)
+target_include_directories(Lua INTERFACE ${LUA_INCLUDE_DIR})
+target_link_libraries(Lua INTERFACE ${LUA_LIBRARIES})
+add_library(Lua::Lua ALIAS Lua)
 
-set(lua_DIR "${EXTERN_DIR}/lua")
-add_library(Lua::Lua SHARED IMPORTED)
-set_target_properties(Lua::Lua
-	PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${lua_DIR}/include"
-		IMPORTED_IMPLIB "${lua_DIR}/liblua54.a"
-		IMPORTED_LOCATION "${lua_DIR}/lua54.dll"
-)
+find_package(sol2 CONFIG REQUIRED)
 
-#add_custom_command(TARGET Lua::Lua
-
-foreach(build_type IN LISTS CMAKE_CONFIGURATION_TYPES)
-	file(COPY "${lua_DIR}/lua54.dll"
-		DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${build_type}"
-	)
-endforeach()
-
-add_library(sol2::sol2 INTERFACE IMPORTED)
-target_link_libraries(sol2::sol2 INTERFACE Lua::Lua)
-target_compile_definitions(sol2::sol2
-	INTERFACE
-		SOL_ALL_SAFETIES_ON
-)
-set_target_properties(sol2::sol2
-	PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${EXTERN_DIR}/sol2/include"
-)
-
-# ---
-
+add_scripts(TARGET Scripts DIR "${CMAKE_CURRENT_SOURCE_DIR}/scripts")
+add_subdirectory(utility)
 add_subdirectory(examples)

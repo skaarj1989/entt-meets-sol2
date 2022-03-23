@@ -1,68 +1,25 @@
 #include <thread>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <conio.h>
-#include "entt/entt.hpp"
-#include "sol/sol.hpp"
+
+#include "script_process.hpp"
+#include "entt/process/scheduler.hpp"
 
 #define AUTO_ARG(x) decltype(x), x
 
+using namespace std::literals;
 using namespace std::chrono_literals;
+
 using fsec = std::chrono::duration<float>;
 
+namespace {
+
 template <typename Delta>
-class ScriptProcess : public entt::process<ScriptProcess<Delta>, Delta> {
-public:
-  ScriptProcess(sol::table &&t, Delta frequency = 250ms)
-      : m_self{t}, m_update{m_self["update"]}, m_frequency{frequency} {
-    m_self["succeed"] = [&] { succeed(); };
-    m_self["abort"] = [&] { abort(); };
-    m_self["fail"] = [&] { fail(); };
-    m_self["pause"] = [&] { pause(); };
-    m_self["unpause"] = [&] { unpause(); };
+[[nodiscard]] sol::table open_scheduler(sol::this_state s) {
+  // To create a scheduler inside a script: entt.scheduler.new()
 
-    m_self["alive"] = [&] { return alive(); };
-    m_self["dead"] = [&] { return dead(); };
-    m_self["paused"] = [&] { return paused(); };
-    m_self["rejected"] = [&] { return rejected(); };
-  }
-  ~ScriptProcess() {
-    std::cout << "ScriptProcess: " << m_self.pointer() << " terminated"
-              << std::endl;
-    m_self.clear();
-    m_self.abandon();
-  }
-
-  void init() {
-    std::cout << "ScriptProcess: " << m_self.pointer() << " joined"
-              << std::endl;
-    _call("init");
-  }
-
-  void update(Delta dt, void *) {
-    if (!m_update.valid()) return fail();
-
-    m_time += dt;
-    if (m_time >= m_frequency) {
-      m_update(m_self, dt.count());
-      m_time = 0s;
-    }
-  }
-  void succeeded() { _call("succeeded"); }
-  void failed() { _call("failed"); }
-  void aborted() { _call("aborted"); }
-
-private:
-  void _call(const std::string_view function_name) {
-    if (auto &f = m_self[function_name]; f.valid()) f(m_self);
-  }
-
-private:
-  sol::table m_self;
-  sol::function m_update;
-  Delta m_frequency, m_time{0};
-};
-
-template <typename Delta> sol::table open_scheduler(const sol::this_state &s) {
   sol::state_view lua{s};
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
@@ -75,14 +32,14 @@ template <typename Delta> sol::table open_scheduler(const sol::this_state &s) {
     "empty", &entt::scheduler<Delta>::empty,
     "clear", &entt::scheduler<Delta>::clear,
     "attach",
-      [](entt::scheduler<Delta> &self, sol::table &&process,
+      [](entt::scheduler<Delta> &self, const sol::table &process,
          const sol::variadic_args &va) {
         // TODO: validate process before attach?
         auto continuator =
-          self.attach<ScriptProcess<Delta>>(std::move(process));
-        for (sol::table &&child_process : va) {
+          self.attach<script_process<Delta>>(process);
+        for (sol::table child_process : va) {
           continuator =
-            continuator.then<ScriptProcess<Delta>>(std::move(child_process));
+            continuator.then<script_process<Delta>>(std::move(child_process));
         }
       },
     "update", &entt::scheduler<Delta>::update,
@@ -93,58 +50,43 @@ template <typename Delta> sol::table open_scheduler(const sol::this_state &s) {
   return entt_module;
 }
 
-int lua_custom_require(lua_State *L) {
-  const auto path = sol::stack::get<std::string>(L, 1);
-  if (path == "test_process") {
-    const auto script = R"(
-      local exports = {}
+#if 0
+// Few ways to require a module from a script:
+// 1. extend path
+// 2. lua.require_file("test_process", "lua/test_process.lua");
+// 3. lua.add_package_loader(lua_custom_require);
 
-      local process = {
-        name = '',
-        count = 0,
-        iterations = 5
-      }
+void extend_path(sol::state &lua) {
+  auto path = lua["package"]["path"].get<std::string>();
+  auto scripts_path = (std::filesystem::current_path() / "lua").string();
+  if (path.find(scripts_path) == std::string::npos)
+    lua["package"]["path"] = scripts_path + "\\?.lua;" + path;
 
-      function process:init()
-        print('[lua] ' .. self.name .. ': init()')
-      end
-      function process:update(dt)
-        print('[lua] ' .. self.name .. ': update('
-          .. string.format("%.2f", dt) .. ')', self.count)
-        self.count = self.count + 1
-        if (self.count >= self.iterations) then
-          self.succeed()
-        end
-      end
-      function process:succeeded()
-        print('[lua] ' .. self.name .. ': succeeded()')
-      end
-      function process:failed()
-        print('[lua] ' .. self.name .. ': failed()')
-      end
-      function process:aborted()
-        print('[lua] ' .. self.name .. ': aborted()')
-      end
+  auto wtf = lua["package"]["path"].get<std::string>();
+  return;
+}
 
-      function exports.new(name, iterations)
-        local self = {}
-        self.name = name or 'unknown'
-        self.iterations = iterations or 5
-        setmetatable(self, { __index = process })
-        return self
-      end
+[[nodiscard]] int lua_custom_require(lua_State *L) {
+  if (const auto path = sol::stack::get<std::string>(L, 1);
+      path == "test_process") {
 
-      return exports
-    )";
-    luaL_loadbuffer(L, script, strlen(script), path.c_str());
+    const auto filename = "lua/test_process.lua"s;
+    std::ifstream f{filename};
+    if (!f.is_open())
+      throw std::runtime_error{"Failed to open file: " + filename};
+
+    std::stringstream ss;
+    ss << f.rdbuf();
+    const auto script = ss.str();
+
+    luaL_loadbuffer(L, script.c_str(), script.length(), path.c_str());
     return 1;
   }
   return 1;
 }
+#endif
 
-//
-//
-//
+} // namespace
 
 int main(int argc, char *argv[]) {
 #ifdef _DEBUG
@@ -159,37 +101,19 @@ int main(int argc, char *argv[]) {
     lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler<fsec>)>,
                 false);
 
-    lua.clear_package_loaders();
-    lua.add_package_loader(lua_custom_require);
-
     entt::scheduler<fsec> scheduler{};
-    lua["scheduler"] = std::ref(scheduler);
+    lua["scheduler"] =
+      std::ref(scheduler); // Make the scheduler available to Lua
 
-    lua.script(R"(
-      --local scheduler = entt.scheduler.new()
-      
-      local test_process = require('test_process')
-      my_proc = test_process.new('deploy_missile')
-      function my_proc:update(dt)
-        self.fail()
-      end
+    lua.do_file("lua/process_chain.lua");
 
-      scheduler:attach(
-        test_process.new('open_silo'),
-        my_proc,
-        test_process.new('launch_missile') -- is rejected because 'my_proc' fails
-      )
-
-      assert(not scheduler:empty())
-      assert(scheduler:size() == 1)
-    )");
-
-    using clock = std::chrono::high_resolution_clock;
     constexpr auto target_frame_time = 16ms;
     fsec delta_time{target_frame_time};
 
     while (!scheduler.empty()) {
+      using clock = std::chrono::high_resolution_clock;
       const auto begin_ticks = clock::now();
+
       lua.step_gc(4);
 
       scheduler.update(delta_time);
@@ -204,6 +128,6 @@ int main(int argc, char *argv[]) {
     std::cout << "exception: " << e.what();
     return -1;
   }
-  
+
   return 0;
 }

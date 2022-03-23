@@ -7,7 +7,10 @@
 #define AUTO_ARG(x) decltype(x), x
 
 using namespace std::chrono_literals;
+
 using fsec = std::chrono::duration<float>;
+
+namespace {
 
 struct ScriptComponent {
   sol::table self;
@@ -30,7 +33,6 @@ void init_script(entt::registry &registry, entt::entity entity) {
   script.hooks.update = script.self["update"];
   assert(script.hooks.update.valid());
 
-  // script.self["id"] = entity;
   script.self["id"] = sol::readonly_property([entity] { return entity; });
   script.self["owner"] = std::ref(registry);
   if (auto &f = script.self["init"]; f.valid()) f(script.self);
@@ -41,6 +43,7 @@ void release_script(entt::registry &registry, entt::entity entity) {
   if (auto &f = script.self["destroy"]; f.valid()) f(script.self);
   script.self.abandon();
 }
+
 void script_system_update(entt::registry &registry, fsec delta_time) {
   auto view = registry.view<ScriptComponent>();
   for (auto entity : view) {
@@ -50,9 +53,7 @@ void script_system_update(entt::registry &registry, fsec delta_time) {
   }
 }
 
-//
-//
-//
+} // namespace
 
 int main(int argc, char *argv[]) {
 #ifdef _DEBUG
@@ -62,47 +63,36 @@ int main(int argc, char *argv[]) {
 #endif
 
   try {
-    sol::state lua{};
-    lua.open_libraries(sol::lib::base, sol::lib::package);
-    lua.require("registry", sol::c_call<AUTO_ARG(&open_registry)>, false);
-    register_transform(lua);
     register_meta_component<Transform>();
 
     entt::registry registry{};
     registry.on_construct<ScriptComponent>().connect<&init_script>();
     registry.on_destroy<ScriptComponent>().connect<&release_script>();
 
-    auto behavior_script = lua.load(R"(
-      node = {}
-      function node:init()
-        print('node [#' .. self.id() .. '] init()', self)
-      end
-      function node:update(dt)
-        local transform = self.owner:get(self.id(), Transform)
-        transform.x = transform.x + 1
-        print('node [#' .. self.id() .. '] update()', transform)
-      end
-      function node:destroy()
-        print('bye, bye! from: node #' .. self.id())
-      end
+    sol::state lua{};
+    lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
+    lua.require("registry", sol::c_call<AUTO_ARG(&open_registry)>, false);
+    register_transform(lua); // Make Transform struct available to Lua
 
-      return node
-    )");
+    auto behavior_script = lua.load_file("lua/behavior_script.lua");
     assert(behavior_script.valid());
+
     for (int i = 0; i < 5; ++i) {
       auto e = registry.create();
       registry.emplace<Transform>(e, Transform{i, i});
       registry.emplace<ScriptComponent>(e, behavior_script.call());
     }
 
-    using clock = std::chrono::high_resolution_clock;
     constexpr auto target_frame_time = 500ms;
     fsec delta_time{target_frame_time};
 
     while (true) {
+      using clock = std::chrono::high_resolution_clock;
       const auto begin_ticks = clock::now();
+
       script_system_update(registry, delta_time);
       std::this_thread::sleep_for(target_frame_time);
+
       delta_time = std::chrono::duration_cast<fsec>(clock::now() - begin_ticks);
       if (delta_time > 1s) delta_time = target_frame_time;
 

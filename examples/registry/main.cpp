@@ -1,4 +1,3 @@
-#include <thread>
 #include <chrono>
 #include <conio.h>
 #include "bond.hpp"
@@ -16,54 +15,27 @@ int main(int argc, char *argv[]) {
 #endif
 
   try {
-    sol::state lua{};
-    lua.open_libraries(sol::lib::base, sol::lib::package);
-    lua.require("registry", sol::c_call<AUTO_ARG(&open_registry)>, false);
-    register_transform(lua);
     register_meta_component<Transform>();
 
+    sol::state lua{};
+    lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
+    lua.require("registry", sol::c_call<AUTO_ARG(&open_registry)>, false);
+    register_transform(lua); // Make Transform struct available to Lua
+
     entt::registry registry{};
-    lua["registry"] = std::ref(registry);
+    lua["registry"] = std::ref(registry); // Make the registry available to Lua
 
-    lua.script(R"(
-      --registry = entt.registry.new()
+    lua.do_file("lua/registry_simple.lua");
 
-      bowser = registry:create()
-      assert(bowser == 0 and registry:size() == 1)
-      registry:emplace(bowser, Transform(5, 6))
-      assert(registry:has(bowser, Transform))
-      assert(registry:has(bowser, Transform.type_id()))
-      
-      assert(not registry:any(bowser, -1, -2))
+    const auto bowser = lua["bowser"].get<entt::entity>();
+    const auto xf = registry.try_get<Transform>(bowser);
+    assert(xf != nullptr);
+    const Transform &transform = lua["transform"];
+    assert(xf->x == transform.x && xf->y == transform.y);
 
-      transform = registry:get(bowser, Transform)
-      transform.x = transform.x + 10
-      print('Bowser position = ' .. tostring(transform))
-    )");
-
-    entt::entity bowser{lua["bowser"]};
-    auto t = registry.try_get<Transform>(bowser);
-    assert(t);
-    Transform &transform = lua["transform"];
-    assert(t->x == transform.x && t->y == transform.y);
-
-    lua.script(R"(
-      view = registry:runtime_view(Transform)
-      assert(view:size_hint() > 0)
-      
-      local koopa = registry:create()
-      registry:emplace(koopa, Transform(100, -200))
-      transform = registry:get(koopa, Transform)
-      print('Koopa position = ' .. tostring(transform))
-      
-      assert(view:size_hint() == 2)
-
-      view:each(function(entity)
-        registry:remove(entity, Transform)
-      end)
-
-      assert(view:size_hint() == 0)
-    )");
+    lua.do_file("lua/iterate_entities.lua");
+    assert(registry.orphan(bowser) && "The only component (Transform) should  "
+                                      "be removed by the script");
   } catch (const std::exception &e) {
     std::cout << "exception: " << e.what();
     return -1;
