@@ -14,7 +14,7 @@ struct TestEvent {
   }
 };
 
-struct NativeListener {
+struct native_listener {
   void receive(const TestEvent &evt) const {
     std::cout << "[c++] received TestEvent: " << evt.to_string() << std::endl;
   }
@@ -49,8 +49,8 @@ int main(int argc, char *argv[]) {
 
   try {
     entt::dispatcher dispatcher{};
-    NativeListener listener{};
-    dispatcher.sink<TestEvent>().connect<&NativeListener::receive>(listener);
+    native_listener listener{};
+    dispatcher.sink<TestEvent>().connect<&native_listener::receive>(listener);
 
     register_meta_event<TestEvent>();
 
@@ -62,21 +62,26 @@ int main(int argc, char *argv[]) {
     lua["dispatcher"] =
       std::ref(dispatcher); // Make the dispatcher available to Lua
 
-    lua.do_file("lua/test_event_handler.lua");
-
-    lua.script(
-      "dispatcher:trigger(TestEvent('lua', 7))"); // Emit an event from script
-
-    lua.do_file("lua/more_listeners.lua");
-    lua.collect_garbage(); // listener.method will be detached now
-
-    lua.script("dispatcher:trigger(TestEvent('lua', 117))");
-
+    lua.do_file("lua/native_event.lua");
     dispatcher.trigger<TestEvent>("c++", 2);
+
+    lua.do_file("lua/runtime_event.lua");
+
+    lua.do_file("lua/more_events.lua");
+
+    lua.collect_garbage();
+
+    lua.script("print('--- main loop ---')");
+
+    lua.script("dispatcher:enqueue(TestEvent('lua', 117))");
+    lua.script(
+      "dispatcher:enqueue(Foo({ message = 'press any key to exit' }))");
+    dispatcher.enqueue<TestEvent>("c++", 10);
 
     while (true) {
       lua.step_gc(4);
-      dispatcher.update();
+
+      lua.script("dispatcher:update()");
 
       if (_kbhit()) break;
     }

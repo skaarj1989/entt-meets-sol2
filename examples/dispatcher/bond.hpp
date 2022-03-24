@@ -4,13 +4,12 @@
 #include "meta_helper.hpp"
 
 template <typename Event>
-[[nodiscard]] auto register_listener(entt::dispatcher *dispatcher,
-                                     sol::function f, sol::this_state s) {
+auto connect_listener(entt::dispatcher *dispatcher, const sol::function &f) {
   assert(dispatcher && f.valid());
 
   struct script_listener {
-    script_listener(entt::dispatcher &dispatcher, sol::function &&f)
-        : callback{std::move(f)} {
+    script_listener(entt::dispatcher &dispatcher, const sol::function &f)
+        : callback{f} {
       connection =
         dispatcher.sink<Event>().connect<&script_listener::receive>(*this);
       std::cout << "Registered lua listener: " << callback.pointer()
@@ -36,8 +35,7 @@ template <typename Event>
     entt::connection connection;
   };
 
-  return sol::make_reference(
-    s, std::make_unique<script_listener>(*dispatcher, std::move(f)));
+  return std::make_unique<script_listener>(*dispatcher, f);
 }
 template <typename Event>
 void trigger_event(entt::dispatcher *dispatcher, const sol::table &evt) {
@@ -63,7 +61,7 @@ template <typename Event> void register_meta_event() {
 
   entt::meta<Event>()
     .type()
-    .template func<&register_listener<Event>>("register_listener"_hs)
+    .template func<&connect_listener<Event>>("connect_listener"_hs)
     .template func<&trigger_event<Event>>("trigger_event"_hs)
     .template func<&enqueue_event<Event>>("enqueue_event"_hs)
     .template func<&clear_event<Event>>("clear_event"_hs)
@@ -76,6 +74,46 @@ template <typename Event> void register_meta_event() {
   sol::state_view lua{s};
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
+  struct base_script_event {
+    sol::table self;
+  };
+  // clang-format off
+  lua.new_usertype<base_script_event>("BaseScriptEvent",
+    "type_id", [] { return entt::type_hash<base_script_event>::value(); }
+  );
+  // clang-format on
+
+  struct scripted_event_listener {
+    scripted_event_listener(entt::dispatcher &dispatcher,
+                            const sol::table &type, const sol::function &f)
+        : key{get_key(type)}, callback{f} {
+      connection = dispatcher.sink<base_script_event>()
+                     .connect<&scripted_event_listener::receive>(*this);
+    }
+    scripted_event_listener(const scripted_event_listener &) = delete;
+    scripted_event_listener(scripted_event_listener &&) noexcept = default;
+    ~scripted_event_listener() { connection.release(); }
+
+    scripted_event_listener &
+    operator=(const scripted_event_listener &) = delete;
+    scripted_event_listener &
+    operator=(scripted_event_listener &&) noexcept = default;
+
+    static uintptr_t get_key(const sol::table &t) {
+      return reinterpret_cast<uintptr_t>(
+        t["__index"].get<sol::table>().pointer());
+    }
+
+    void receive(const base_script_event &evt) const {
+      assert(connection && callback.valid());
+      if (auto &[self] = evt; get_key(self) == key) callback(self);
+    }
+
+    const uintptr_t key;
+    const sol::function callback;
+    entt::connection connection;
+  };
+
   using namespace entt::literals;
 
   // clang-format off
@@ -85,13 +123,17 @@ template <typename Event> void register_meta_event() {
 
     "trigger",
       [](entt::dispatcher &self, const sol::table &evt) {
-      invoke_meta_func(
-          get_type_id(evt), "trigger_event"_hs, &self, evt);
+        const auto event_id = get_type_id(evt);
+        event_id == entt::type_hash<base_script_event>::value()
+          ? self.trigger<base_script_event>(evt)
+          : invoke_meta_func(event_id, "trigger_event"_hs, &self, evt);
       },
     "enqueue",
       [](entt::dispatcher &self, const sol::table &evt) {
-        invoke_meta_func(
-          get_type_id(evt), "enqueue_event"_hs, &self, evt);
+        const auto event_id = get_type_id(evt);
+        event_id == entt::type_hash<base_script_event>::value()
+          ? self.enqueue<base_script_event>(evt)
+          : invoke_meta_func(event_id, "enqueue_event"_hs, &self, evt);
       },
     "clear",
       sol::overload(
@@ -101,21 +143,34 @@ template <typename Event> void register_meta_event() {
             deduce_type(type_or_id), "clear_event"_hs, &self);
         }
       ),
-      "update", [](entt::dispatcher &self, const sol::object &type_or_id) {
-        invoke_meta_func(
-          deduce_type(type_or_id), "update_event"_hs, &self);
-      },
-      "connect", [](entt::dispatcher &self, const sol::object &type_or_id,
-        const sol::function &listener, sol::this_state s) -> sol::object {
+    "update",
+      sol::overload(
+        &entt::dispatcher::update,
+        [](entt::dispatcher &self, const sol::object &type_or_id) {
+          invoke_meta_func(
+            deduce_type(type_or_id), "update_event"_hs, &self);
+        }
+      ),
+    "connect",
+      [](entt::dispatcher &self, const sol::object &type_or_id,
+         const sol::function &listener, sol::this_state s) {
         if (!listener.valid()) {
           // TODO: warning message
-          return sol::lua_nil_t{};
+          return entt::meta_any{};
         }
-        const auto maybe_any = invoke_meta_func(deduce_type(type_or_id),
-          "register_listener"_hs, &self, listener, s);
-        return maybe_any ? maybe_any.cast<sol::reference>() : sol::lua_nil_t{};
-      }
-   
+
+        const auto event_id = deduce_type(type_or_id);
+        if (event_id == entt::type_hash<base_script_event>::value()) {
+          return entt::meta_any{
+            std::make_unique<scripted_event_listener>(self, type_or_id, listener)};
+        }
+        else
+          return invoke_meta_func(event_id, "connect_listener"_hs, &self, listener);
+      },
+    "disconnect", [](sol::table &connection) {
+      connection.as<entt::meta_any>().reset();
+      connection = sol::nil;
+    }
   );
   // clang-format on
 
