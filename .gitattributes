@@ -1,2 +1,3 @@
-examples/* linguist-documentation=false
-examples/* linguist-detectable=true
+examples/** linguist-detectable=true
+examples/** linguist-vendored=false
+examples/** linguist-documentation=false
