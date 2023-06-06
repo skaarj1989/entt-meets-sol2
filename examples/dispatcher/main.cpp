@@ -63,9 +63,9 @@ int main(int argc, char *argv[]) {
       std::ref(dispatcher); // Make the dispatcher available to Lua
 
     lua.do_file("lua/native_event.lua");
-    dispatcher.trigger<TestEvent>("c++", 2);
+    dispatcher.trigger(TestEvent{"c++", 2});
 
-    lua.do_file("lua/runtime_event.lua");
+    lua.do_file("lua/scripted_event.lua");
 
     lua.do_file("lua/more_events.lua");
 
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
     lua.script("dispatcher:enqueue(TestEvent('lua', 117))");
     lua.script(
       "dispatcher:enqueue(Foo({ message = 'press any key to exit' }))");
-    dispatcher.enqueue<TestEvent>("c++", 10);
+    dispatcher.enqueue(TestEvent{"c++", 10});
 
     while (true) {
       lua.step_gc(4);

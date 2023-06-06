@@ -60,7 +60,6 @@ template <typename Event> void register_meta_event() {
   using namespace entt::literals;
 
   entt::meta<Event>()
-    .type()
     .template func<&connect_listener<Event>>("connect_listener"_hs)
     .template func<&trigger_event<Event>>("trigger_event"_hs)
     .template func<&enqueue_event<Event>>("enqueue_event"_hs)
@@ -125,19 +124,19 @@ template <typename Event> void register_meta_event() {
       [](entt::dispatcher &self, const sol::table &evt) {
         const auto event_id = get_type_id(evt);
         event_id == entt::type_hash<base_script_event>::value()
-          ? self.trigger<base_script_event>(evt)
+          ? self.trigger(base_script_event{evt})
           : invoke_meta_func(event_id, "trigger_event"_hs, &self, evt);
       },
     "enqueue",
       [](entt::dispatcher &self, const sol::table &evt) {
         const auto event_id = get_type_id(evt);
         event_id == entt::type_hash<base_script_event>::value()
-          ? self.enqueue<base_script_event>(evt)
+          ? self.enqueue(base_script_event{evt})
           : invoke_meta_func(event_id, "enqueue_event"_hs, &self, evt);
       },
     "clear",
       sol::overload(
-        &entt::dispatcher::clear<>,
+        &entt::dispatcher::clear,
         [](entt::dispatcher &self, const sol::object &type_or_id) {
           invoke_meta_func(
             deduce_type(type_or_id), "clear_event"_hs, &self);
