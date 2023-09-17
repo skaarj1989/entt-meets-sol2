@@ -61,9 +61,6 @@ void extend_path(sol::state &lua) {
   auto scripts_path = (std::filesystem::current_path() / "lua").string();
   if (path.find(scripts_path) == std::string::npos)
     lua["package"]["path"] = scripts_path + "\\?.lua;" + path;
-
-  auto wtf = lua["package"]["path"].get<std::string>();
-  return;
 }
 
 [[nodiscard]] int lua_custom_require(lua_State *L) {
