@@ -3,6 +3,9 @@
 #include <sstream>
 
 struct Transform {
+  // https://github.com/skypjack/entt/wiki/Crash-Course:-entity-component-system#pointer-stability
+  static constexpr auto in_place_delete = true;
+
   int x, y;
 
   [[nodiscard]] std::string to_string() const {
