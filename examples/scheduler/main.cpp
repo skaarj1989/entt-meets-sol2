@@ -20,19 +20,21 @@ template <typename Delta>
 [[nodiscard]] sol::table open_scheduler(sol::this_state s) {
   // To create a scheduler inside a script: entt.scheduler.new()
 
+  using scheduler = entt::basic_scheduler<Delta>;
+
   sol::state_view lua{s};
   auto entt_module = lua["entt"].get_or_create<sol::table>();
 
   // clang-format off
-  entt_module.new_usertype<entt::scheduler<Delta>>("scheduler",
+  entt_module.new_usertype<scheduler>("scheduler",
     sol::meta_function::construct,
-    sol::factories([]{ return entt::scheduler<Delta>{}; }),
+    sol::factories([]{ return scheduler{}; }),
 
-    "size", &entt::scheduler<Delta>::size,
-    "empty", &entt::scheduler<Delta>::empty,
-    "clear", &entt::scheduler<Delta>::clear,
+    "size", &scheduler::size,
+    "empty", &scheduler::empty,
+    "clear", &scheduler::clear,
     "attach",
-      [](entt::scheduler<Delta> &self, const sol::table &process,
+      [](scheduler &self, const sol::table &process,
          const sol::variadic_args &va) {
         // TODO: validate process before attach?
         auto continuator =
@@ -42,8 +44,8 @@ template <typename Delta>
             continuator.then<script_process<Delta>>(std::move(child_process));
         }
       },
-    "update", &entt::scheduler<Delta>::update,
-    "abort", &entt::scheduler<Delta>::abort
+    "update", &scheduler::update,
+    "abort", &scheduler::abort
   );
   // clang-format on
 
@@ -97,7 +99,7 @@ int main(int argc, char *argv[]) {
     lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler<fsec>)>,
                 false);
 
-    entt::scheduler<fsec> scheduler{};
+    entt::basic_scheduler<fsec> scheduler{};
     lua["scheduler"] =
       std::ref(scheduler); // Make the scheduler available to Lua
 
