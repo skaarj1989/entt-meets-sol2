@@ -1,5 +1,5 @@
-#include <conio.h>
 #include "bond.hpp"
+#include "../common/kbhit.hpp"
 
 #define AUTO_ARG(x) decltype(x), x
 
@@ -41,7 +41,7 @@ void expose_test_event(sol::state &lua) {
 } // namespace
 
 int main(int argc, char *argv[]) {
-#ifdef _DEBUG
+#if WIN32 && _DEBUG
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
@@ -56,6 +56,7 @@ int main(int argc, char *argv[]) {
 
     sol::state lua{};
     lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
+
     lua.require("dispatcher", sol::c_call<AUTO_ARG(&open_dispatcher)>, false);
     expose_test_event(lua); // Make TestEvent available to Lua
 

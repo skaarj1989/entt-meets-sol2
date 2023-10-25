@@ -1,26 +1,17 @@
 #include <thread>
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <conio.h>
+#include "../common/kbhit.hpp"
 
 #include "script_process.hpp"
 #include "entt/process/scheduler.hpp"
 
 #define AUTO_ARG(x) decltype(x), x
 
-using namespace std::literals;
-using namespace std::chrono_literals;
-
-using fsec = std::chrono::duration<float>;
-
 namespace {
 
-template <typename Delta>
+using scheduler = entt::basic_scheduler<fsec>;
+
 [[nodiscard]] sol::table open_scheduler(sol::this_state s) {
   // To create a scheduler inside a script: entt.scheduler.new()
-
-  using scheduler = entt::basic_scheduler<Delta>;
 
   sol::state_view lua{s};
   auto entt_module = lua["entt"].get_or_create<sol::table>();
@@ -37,15 +28,18 @@ template <typename Delta>
       [](scheduler &self, const sol::table &process,
          const sol::variadic_args &va) {
         // TODO: validate process before attach?
-        auto continuator =
-          self.attach<script_process<Delta>>(process);
+        auto continuator = self.template attach<script_process>(process);
         for (sol::table child_process : va) {
           continuator =
-            continuator.then<script_process<Delta>>(std::move(child_process));
+            continuator.template then<script_process>(std::move(child_process));
         }
       },
-    "update", &scheduler::update,
-    "abort", &scheduler::abort
+    "update", sol::resolve<void(fsec, void *)>(&scheduler::update),
+    "abort",
+      sol::overload(
+        [](scheduler &self) { self.abort(); },
+        sol::resolve<void(bool)>(&scheduler::abort)
+      )
   );
   // clang-format on
 
@@ -53,10 +47,13 @@ template <typename Delta>
 }
 
 #if 0
-// Few ways to require a module from a script:
-// 1. extend path
+// Few ways to 'require' a module from a script:
+// 1. extend package.path
 // 2. lua.require_file("test_process", "lua/test_process.lua");
 // 3. lua.add_package_loader(lua_custom_require);
+
+#include <filesystem>
+#include <fstream>
 
 void extend_path(sol::state &lua) {
   auto path = lua["package"]["path"].get<std::string>();
@@ -87,7 +84,7 @@ void extend_path(sol::state &lua) {
 } // namespace
 
 int main(int argc, char *argv[]) {
-#ifdef _DEBUG
+#if WIN32 && _DEBUG
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
@@ -96,14 +93,15 @@ int main(int argc, char *argv[]) {
   try {
     sol::state lua{};
     lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string);
-    lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler<fsec>)>,
-                false);
+    lua.require("scheduler", sol::c_call<AUTO_ARG(&open_scheduler)>, false);
 
-    entt::basic_scheduler<fsec> scheduler{};
+    scheduler scheduler{};
     lua["scheduler"] =
       std::ref(scheduler); // Make the scheduler available to Lua
 
     lua.do_file("lua/process_chain.lua");
+
+    using namespace std::chrono_literals;
 
     constexpr auto target_frame_time = 16ms;
     fsec delta_time{target_frame_time};

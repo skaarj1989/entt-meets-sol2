@@ -126,7 +126,7 @@ sol::table open_registry(sol::this_state s) {
         const auto types = collect_types(va);
         const auto has = self["has"].get<sol::function>();
         return std::any_of(types.cbegin(), types.cend(),
-          [&](auto type_id) { return has(self, entity, type_id).get<bool>(); }
+          [&](auto type_id) { return has(self, entity, type_id).template get<bool>(); }
         );
       },
     "get",

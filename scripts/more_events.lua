@@ -1,16 +1,16 @@
 print('--- more_events.lua ---')
 
-require('define_event')
+require 'lua.define_event'
 
 listeners = {
-    connections = {},
+  connections = {},
 
-    receive = function(evt)
-        print('[lua/ listeners.receive] TestEvent: ' .. tostring(evt))
-    end,
-    notify = function(evt)
-        print('[lua/ listeners.notify] Bar: ' .. tostring(evt))
-    end
+  receive = function(evt)
+    print('[lua/ listeners.receive] TestEvent: ' .. tostring(evt))
+  end,
+  notify = function(evt)
+    print('[lua/ listeners.notify] Bar: ' .. tostring(evt))
+  end
 }
 listeners.connections[0] = dispatcher:connect(TestEvent, listeners.receive)
 
@@ -29,5 +29,5 @@ dispatcher:connect(TestEvent, listeners.notify)
 -- No listener for the following event, nothing will happen
 local Baz = define_event()
 dispatcher:trigger(Baz({
-    err = '404?'
+  err = '404?'
 }))

@@ -9,8 +9,8 @@ print('Koopa position = ' .. tostring(transform))
 assert(view:size_hint() == 2)
 
 view:each(function(entity)
-    print('Remove Transform from entity: ' .. entity)
-    registry:remove(entity, Transform)
+  print('Remove Transform from entity: ' .. entity)
+  registry:remove(entity, Transform)
 end)
 
 assert(view:size_hint() == 0)

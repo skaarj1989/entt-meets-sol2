@@ -2,8 +2,9 @@
 print('--- native_event.lua ---')
 
 function test_event_handler(evt)
-    print('[lua:test_event_handler] received TestEvent: ' .. tostring(evt))
+  print('[lua:test_event_handler] received TestEvent: ' .. tostring(evt))
 end
+
 -- A global variable = long-lived connection
 conn = dispatcher:connect(TestEvent, test_event_handler)
 

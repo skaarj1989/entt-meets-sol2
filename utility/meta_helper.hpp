@@ -14,7 +14,7 @@ template <typename T> [[nodiscard]] entt::id_type deduce_type(T &&obj) {
   switch (obj.get_type()) {
   // in lua: registry:has(e, Transform.type_id())
   case sol::type::number:
-    return obj.as<entt::id_type>();
+    return obj.template as<entt::id_type>();
   // in lua: registry:has(e, Transform)
   case sol::type::table:
     return get_type_id(obj);
@@ -32,7 +32,7 @@ inline auto invoke_meta_func(entt::meta_type meta_type,
   if (!meta_type) {
     // TODO: Warning message
   } else {
-    if (auto meta_function = meta_type.func(function_id); meta_function)
+    if (auto &&meta_function = meta_type.func(function_id); meta_function)
       return meta_function.invoke({}, std::forward<Args>(args)...);
   }
   return entt::meta_any{};

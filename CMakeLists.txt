@@ -22,12 +22,13 @@ set_property(GLOBAL PROPERTY USE_FOLDERS YES)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 
 option(BUILD_SHARED_LIBS "Use shared libraries" OFF)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib") # .lib
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib") # .dll
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin") # .exe
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}/lib>") # .lib, .a
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}/lib>") # .dll, .so
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}/bin>") # .exe
 
 include(cmake/AddExample.cmake)
 include(cmake/AddScripts.cmake)
@@ -41,6 +42,7 @@ target_link_libraries(Lua INTERFACE ${LUA_LIBRARIES})
 add_library(Lua::Lua ALIAS Lua)
 
 find_package(sol2 CONFIG REQUIRED)
+target_link_libraries(sol2 INTERFACE Lua::Lua)
 
 add_scripts(TARGET Scripts DIR "${CMAKE_CURRENT_SOURCE_DIR}/scripts")
 add_subdirectory(utility)
