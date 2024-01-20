@@ -5,7 +5,7 @@
 
 ## Requirements
 
-- EnTT v.3.12.2 (latest)
+- EnTT v.3.13.0 (latest)
 - sol2 v3.2.2 (latest)
 
 ## Building

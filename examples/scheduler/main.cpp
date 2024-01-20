@@ -28,10 +28,9 @@ using scheduler = entt::basic_scheduler<fsec>;
       [](scheduler &self, const sol::table &process,
          const sol::variadic_args &va) {
         // TODO: validate process before attach?
-        auto continuator = self.template attach<script_process>(process);
+        auto &continuator = self.template attach<script_process>(process);
         for (sol::table child_process : va) {
-          continuator =
-            continuator.template then<script_process>(std::move(child_process));
+          continuator.template then<script_process>(std::move(child_process));
         }
       },
     "update", sol::resolve<void(fsec, void *)>(&scheduler::update),
