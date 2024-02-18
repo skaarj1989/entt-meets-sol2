@@ -1,5 +1,9 @@
 #include <thread>
 #include <chrono>
+#if WIN32
+#include <crtdbg.h>
+#endif
+
 #include "../common/kbhit.hpp"
 
 #include "../registry/bond.hpp"

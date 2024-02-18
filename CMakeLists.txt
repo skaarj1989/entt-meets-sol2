@@ -30,6 +30,10 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}/lib>") # .lib, .a
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}/lib>") # .dll, .so
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}/bin>") # .exe
 
+if(WIN32)
+  add_definitions(-DWIN32)
+endif()
+
 include(cmake/AddExample.cmake)
 include(cmake/AddScripts.cmake)
 

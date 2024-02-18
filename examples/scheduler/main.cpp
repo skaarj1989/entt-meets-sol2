@@ -1,4 +1,7 @@
 #include <thread>
+#if WIN32
+#include <crtdbg.h>
+#endif
 #include "../common/kbhit.hpp"
 
 #include "script_process.hpp"

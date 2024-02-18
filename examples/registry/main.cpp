@@ -1,5 +1,8 @@
 #include "bond.hpp"
 #include "../common/transform.hpp"
+#if WIN32
+#include <crtdbg.h>
+#endif
 
 #define AUTO_ARG(x) decltype(x), x
 
