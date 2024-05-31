@@ -15,7 +15,9 @@ auto emplace_component(entt::registry *registry, entt::entity entity,
                        const sol::table &instance, sol::this_state s) {
   assert(registry);
   auto &comp = registry->emplace_or_replace<Component>(
-    entity, instance.valid() ? instance.as<Component>() : Component{});
+    entity,
+    instance.valid() ? std::move(instance.as<Component &&>()) : Component{});
+
   return sol::make_reference(s, std::ref(comp));
 }
 template <typename Component>

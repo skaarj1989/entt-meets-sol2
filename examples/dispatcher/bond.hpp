@@ -141,7 +141,7 @@ template <typename Event> void register_meta_event() {
       },
     "clear",
       sol::overload(
-        sol::resolve<void()>(&entt::dispatcher::clear),
+        [](entt::dispatcher &self) { self.clear(); },
         [](entt::dispatcher &self, const sol::object &type_or_id) {
           invoke_meta_func(
             deduce_type(type_or_id), "clear_event"_hs, &self);
@@ -149,7 +149,7 @@ template <typename Event> void register_meta_event() {
       ),
     "update",
       sol::overload(
-        sol::resolve<void() const>(&entt::dispatcher::update),
+        [](entt::dispatcher &self) { self.update(); },
         [](entt::dispatcher &self, const sol::object &type_or_id) {
           invoke_meta_func(
             deduce_type(type_or_id), "update_event"_hs, &self);
