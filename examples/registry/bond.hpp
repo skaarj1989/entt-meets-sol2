@@ -91,7 +91,7 @@ sol::table open_registry(sol::this_state s) {
       return self.storage<entt::entity>()->size();
     },
     "alive", [](const entt::registry &self) {
-      return self.storage<entt::entity>()->in_use();
+      return self.storage<entt::entity>()->free_list();
     },
 
     "valid", &entt::registry::valid,
