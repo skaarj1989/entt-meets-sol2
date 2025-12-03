@@ -1,8 +1,10 @@
 #pragma once
 
-#include "entt/entity/registry.hpp"
-#include "entt/entity/runtime_view.hpp"
 #include "meta_helper.hpp"
+
+#include <entt/entity/registry.hpp>
+#include <entt/entity/runtime_view.hpp>
+
 #include <set>
 
 template <typename Component>
@@ -45,7 +47,7 @@ template <typename Component> void clear_component(entt::registry *registry) {
 template <typename Component> void register_meta_component() {
   using namespace entt::literals;
 
-  entt::meta<Component>()
+  entt::meta_factory<Component>()
     .template func<&is_valid<Component>>("valid"_hs)
     .template func<&emplace_component<Component>>("emplace"_hs)
     .template func<&get_component<Component>>("get"_hs)

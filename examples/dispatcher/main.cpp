@@ -1,6 +1,8 @@
 #include "bond.hpp"
 #include "../common/kbhit.hpp"
 
+#include <iostream>
+
 #define AUTO_ARG(x) decltype(x), x
 
 namespace {

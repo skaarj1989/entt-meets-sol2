@@ -1,6 +1,8 @@
 #include "bond.hpp"
 #include "../common/transform.hpp"
 
+#include <iostream>
+
 #define AUTO_ARG(x) decltype(x), x
 
 int main(int argc, char *argv[]) {

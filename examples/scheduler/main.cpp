@@ -1,8 +1,8 @@
 #include <thread>
 #include "../common/kbhit.hpp"
-
 #include "script_process.hpp"
-#include "entt/process/scheduler.hpp"
+#include <entt/process/scheduler.hpp>
+#include <thread>
 
 #define AUTO_ARG(x) decltype(x), x
 
@@ -28,9 +28,9 @@ using scheduler = entt::basic_scheduler<fsec>;
       [](scheduler &self, const sol::table &process,
          const sol::variadic_args &va) {
         // TODO: validate process before attach?
-        auto &continuator = self.template attach<script_process>(process);
+        auto *last = &self.template attach<script_process>(process);
         for (sol::table child_process : va) {
-          continuator.template then<script_process>(std::move(child_process));
+          last = &last->template then<script_process>(std::move(child_process));
         }
       },
     "update", sol::resolve<void(fsec, void *)>(&scheduler::update),

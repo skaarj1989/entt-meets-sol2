@@ -1,8 +1,8 @@
 #pragma once
 
-#include "entt/meta/factory.hpp"
-#include "entt/meta/resolve.hpp"
-#include "sol/sol.hpp"
+#include <entt/meta/factory.hpp>
+#include <entt/meta/resolve.hpp>
+#include <sol/sol.hpp>
 
 [[nodiscard]] entt::id_type get_type_id(const sol::table &obj) {
   const auto f = obj["type_id"].get<sol::function>();

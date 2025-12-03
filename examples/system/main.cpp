@@ -1,9 +1,11 @@
-#include <thread>
-#include <chrono>
 #include "../common/kbhit.hpp"
 
 #include "../registry/bond.hpp"
 #include "../common/transform.hpp"
+
+#include <thread>
+#include <chrono>
+#include <iostream>
 
 #define AUTO_ARG(x) decltype(x), x
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "entt/signal/dispatcher.hpp"
+#include <entt/signal/dispatcher.hpp>
 #include "meta_helper.hpp"
 
 template <typename Event>
@@ -60,7 +60,7 @@ template <typename Event> void update_event(entt::dispatcher *dispatcher) {
 template <typename Event> void register_meta_event() {
   using namespace entt::literals;
 
-  entt::meta<Event>()
+  entt::meta_factory<Event>()
     .template func<&connect_listener<Event>>("connect_listener"_hs)
     .template func<&trigger_event<Event>>("trigger_event"_hs)
     .template func<&enqueue_event<Event>>("enqueue_event"_hs)

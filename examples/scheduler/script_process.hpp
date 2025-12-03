@@ -1,16 +1,23 @@
 #pragma once
 
+#include <entt/process/process.hpp>
+#include <sol/sol.hpp>
+
 #include <chrono>
-#include "entt/process/process.hpp"
-#include "sol/sol.hpp"
+#include <iostream>
 
 using fsec = std::chrono::duration<float>;
 
-class script_process : public entt::process<script_process, fsec> {
+class script_process : public entt::basic_process<fsec> {
 public:
-  script_process(const sol::table &t,
+  using entt::basic_process<fsec>::basic_process;
+  using allocator_type = typename entt::process::allocator_type;
+
+  script_process(const allocator_type &allocator, const sol::table &t,
                  const fsec freq = std::chrono::milliseconds{250})
-      : m_self{t}, m_update{m_self["update"]}, m_frequency{freq} {
+      : basic_process{allocator}, m_self{t}, m_frequency{freq} {
+    m_update = m_self["update"];
+
 #define BIND(func) m_self.set_function(#func, &script_process::func, this)
 
     BIND(succeed);
@@ -39,7 +46,7 @@ public:
     _call("init");
   }
 
-  void update(fsec dt, void *) {
+  void update(delta_type dt, void *) {
     if (!m_update.valid()) return fail();
 
     m_time += dt;

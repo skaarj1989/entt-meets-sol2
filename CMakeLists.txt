@@ -41,7 +41,10 @@ target_include_directories(Lua INTERFACE ${LUA_INCLUDE_DIR})
 target_link_libraries(Lua INTERFACE ${LUA_LIBRARIES})
 add_library(Lua::Lua ALIAS Lua)
 
-find_package(sol2 CONFIG REQUIRED)
+find_path(SOL2_INCLUDE_DIRS "sol/abort.hpp")
+
+add_library(sol2 INTERFACE)
+target_include_directories(sol2 INTERFACE ${SOL2_INCLUDE_DIRS})
 target_link_libraries(sol2 INTERFACE Lua::Lua)
 
 add_scripts(TARGET Scripts DIR "${CMAKE_CURRENT_SOURCE_DIR}/scripts")
